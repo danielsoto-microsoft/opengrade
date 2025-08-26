@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OpenGrade — Minimal Teacher Gradebook</title>
+  <title>OpenGrade — Minimal Gradebook (Week Notes in Header + EC per Cell)</title>
   <style>
     :root{
       --bg:#0f172a; --panel:#111827; --muted:#94a3b8; --text:#e5e7eb;
@@ -14,7 +14,7 @@
     html,body{height:100%}
     body{
       margin:0; background:linear-gradient(180deg,#0b1020 0%, #0a0f1a 100%);
-      color:var(--text); font-family:system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial;
+      color:var(--text); font-family:system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Arial;
     }
     header{
       position:sticky; top:0; z-index:3; background:rgba(12,18,32,.9);
@@ -47,19 +47,27 @@
     .toolbar{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px}
     .toolbar .spacer{flex:1}
     .card{background:linear-gradient(180deg,#0c1426,#0a111e); border:1px solid var(--border); border-radius:14px; padding:12px}
-    .grid{width:100%; border-collapse:separate; border-spacing:0; min-width:720px}
-    .grid th,.grid td{border-bottom:1px solid #1b2538; padding:10px; text-align:left}
+    .grid{width:100%; border-collapse:separate; border-spacing:0; min-width:780px}
+    .grid th,.grid td{border-bottom:1px solid #1b2538; padding:10px; text-align:left; vertical-align:top}
     .grid thead th{position:sticky; top:0; background:#0b1220; z-index:2}
     .grid tbody tr:hover{background:#0d1526}
     .grid th:first-child,.grid td:first-child{position:sticky; left:0; background:#0b1220; z-index:1}
-    .tag{font-size:11px; padding:3px 8px; border-radius:999px; border:1px solid var(--border); color:var(--muted)}
+    .tag{font-size:11px; padding:3px 8px; border-radius:999px; border:1px solid #1f2937; color:var(--muted)}
     input[type="number"]{width:92px; padding:6px 8px; border-radius:8px; border:1px solid #22304a; background:#0c1526; color:var(--text)}
     input[type="text"],input[type="date"]{width:100%; padding:8px 10px; border-radius:8px; border:1px solid #22304a; background:#0c1526; color:var(--text)}
     .pill{padding:4px 8px; border-radius:999px; font-weight:700}
     .A{background:#123b22}.B{background:#1a2f55}.C{background:#4a3412}.D{background:#4a1b12}.F{background:#3a0f0f}
     .muted{color:var(--muted)} .footer{margin-top:12px; font-size:12px; color:var(--muted)}
-    .row-actions{display:flex; gap:6px}
+    .row-actions{display:flex; gap:6px; align-items:center; flex-wrap:wrap}
     .sr-only{position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0}
+    .cell-wrap{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+    .flags{display:flex; align-items:center; gap:8px}
+    .flags label{font-size:11px; color:var(--muted); display:flex; align-items:center; gap:4px}
+    .flags input[type="number"]{width:56px; padding:3px 6px}
+    .wk-chip{display:flex; align-items:center; gap:6px; border:1px solid var(--border); border-radius:999px; padding:4px 8px; margin:4px 4px 0 0}
+    .wk-chip button{padding:2px 6px}
+    .wk-head{display:flex; align-items:center; gap:6px}
+    .icon-btn{cursor:pointer; border:1px solid var(--border); border-radius:6px; padding:2px 6px; background:#0c1526; color:var(--muted)}
     @media (max-width:980px){.app{grid-template-columns:1fr} aside{order:2}}
   </style>
 </head>
@@ -80,8 +88,10 @@
     <aside>
       <div class="section-title">Classes</div>
       <div id="classList" class="class-list"></div>
+
       <div class="section-title">Selected</div>
       <div id="selectedMeta" class="card"></div>
+
       <div class="section-title">Roster</div>
       <div class="card">
         <div style="display:flex; gap:8px; margin-bottom:10px">
@@ -90,6 +100,7 @@
         </div>
         <div id="studentCount" class="muted"></div>
       </div>
+
       <div class="section-title">Weeks</div>
       <div class="card">
         <div style="display:grid; grid-template-columns:1fr 130px; gap:8px; margin-bottom:10px">
@@ -98,11 +109,13 @@
         </div>
         <button id="btn-add-week">+ Week</button>
         <div id="weekCount" class="muted" style="margin-top:8px"></div>
+        <!-- Week list (Delete only; notes moved to header) -->
+        <div id="weekList" style="margin-top:6px;"></div>
       </div>
     </aside>
     <main>
       <div class="toolbar">
-        <div class="tag" id="gradeScale">Scale: A ≥90, B ≥80, C ≥70, D ≥60</div>
+        <div class="tag" id="gradeScale">Scale: A ≥90, B ≥80, C ≥70, D ≥60 • EC adds directly to that week’s score (capped at 100)</div>
         <div class="spacer"></div>
         <button id="btn-add-week-top">+ Week</button>
       </div>
@@ -114,9 +127,10 @@
   </div>
 
   <script>
-    // --- Minimal local data layer -------------------------------------------------
-    const KEY = 'opengrade_v1';
-    // Storage shim: use localStorage if available; fallback to in-memory if blocked
+    if (!String.prototype.replaceAll) { String.prototype.replaceAll = function(a,b){ return this.split(a).join(b); }; }
+
+    // --- Data layer --------------------------------------------------------------
+    const KEY = 'opengrade_v4_header_notes_cell_ec';
     const storage = (()=>{ 
       try{ const t='__og_test__'; localStorage.setItem(t,'1'); localStorage.removeItem(t);
         return {get:(k)=>localStorage.getItem(k), set:(k,v)=>localStorage.setItem(k,v), remove:(k)=>localStorage.removeItem(k)};
@@ -127,29 +141,48 @@
     const Default = () => ({
       classes:[{id:uid(), name:'Algebra I — Period 2'}],
       selectedClassId:null,
-      students:[], // {id, classId, name}
-      weeks:[],    // {id, classId, label, date}
-      grades:{}    // key: `${classId}|${studentId}|${weekId}` -> number
+      students:[], // {id, classId, name, notes?:string}
+      weeks:[],    // {id, classId, label, date, notes?:string}
+      // grade: {score:number|undefined, absent:boolean, ec:boolean, ecPoints:number|undefined}
+      grades:{}
     });
 
-    const load = () => {
+    function load(){
       let raw = storage.get(KEY);
       if(!raw){
         const d = Default();
         d.selectedClassId = d.classes[0].id;
-        // seed demo
-        const s1 = {id:uid(), classId:d.selectedClassId, name:'Ava Thompson'};
-        const s2 = {id:uid(), classId:d.selectedClassId, name:'Liam Hernandez'};
-        const w1 = {id:uid(), classId:d.selectedClassId, label:'Week 1', date:new Date().toISOString().slice(0,10)};
-        const w2 = {id:uid(), classId:d.selectedClassId, label:'Week 2', date:new Date(Date.now()+6*86400000).toISOString().slice(0,10)};
+        const s1 = {id:uid(), classId:d.selectedClassId, name:'Ava Thompson', notes:'IEP: extended time'};
+        const s2 = {id:uid(), classId:d.selectedClassId, name:'Liam Hernandez', notes:''};
+        const w1 = {id:uid(), classId:d.selectedClassId, label:'Week 1', date:new Date().toISOString().slice(0,10), notes:''};
+        const w2 = {id:uid(), classId:d.selectedClassId, label:'Week 2', date:new Date(Date.now()+6*86400000).toISOString().slice(0,10), notes:''};
         d.students.push(s1,s2); d.weeks.push(w1,w2);
-        d.grades[`${d.selectedClassId}|${s1.id}|${w1.id}`]=95;
-        d.grades[`${d.selectedClassId}|${s2.id}|${w1.id}`]=88;
+        d.grades[`${d.selectedClassId}|${s1.id}|${w1.id}`]={score:95, absent:false, ec:false, ecPoints:0};
+        d.grades[`${d.selectedClassId}|${s2.id}|${w1.id}`]={score:88, absent:false, ec:false, ecPoints:0};
         storage.set(KEY, JSON.stringify(d));
         return d;
       }
-      try{ return JSON.parse(raw); }catch{ const d=Default(); storage.set(KEY, JSON.stringify(d)); return d; }
-    };
+      try{
+        const data = JSON.parse(raw);
+        data.students = (data.students||[]).map(s=>({...s, notes: s.notes||''}));
+        data.weeks = (data.weeks||[]).map(w=>({...w, notes: w.notes||''}));
+        // migrate grades
+        const up={}; for(const k of Object.keys(data.grades||{})){
+          const v=data.grades[k];
+          if(typeof v==='number'){ up[k]={score:v, absent:false, ec:false, ecPoints:0}; }
+          else{
+            up[k]={ 
+              score:(v&&typeof v.score==='number')?v.score:undefined,
+              absent:!!(v&&v.absent),
+              ec: !!(v&&v.ec),
+              ecPoints: (v&&typeof v.ecPoints==='number')? v.ecPoints : 0
+            };
+          }
+        }
+        data.grades=up;
+        return data;
+      }catch{ const d=Default(); storage.set(KEY, JSON.stringify(d)); return d; }
+    }
     let state = load();
     const save = () => storage.set(KEY, JSON.stringify(state));
 
@@ -158,19 +191,42 @@
     const getSelectedClass = () => state.classes.find(c=>c.id===state.selectedClassId) || state.classes[0];
     const studentsByClass = cid => state.students.filter(s=>s.classId===cid);
     const weeksByClass = cid => state.weeks.filter(w=>w.classId===cid);
-    const getGrade = (cid,sid,wid) => state.grades[`${cid}|${sid}|${wid}`];
-    const setGrade = (cid,sid,wid,val) => { state.grades[`${cid}|${sid}|${wid}`]=val; save(); };
-    const delClass = (cid) => {
-      state.classes = state.classes.filter(c=>c.id!==cid);
-      state.students = state.students.filter(s=>s.classId!==cid);
-      state.weeks = state.weeks.filter(w=>w.classId!==cid);
-      for(const k of Object.keys(state.grades)) if(k.startsWith(cid+'|')) delete state.grades[k];
-      if(!state.classes.length){ const d=Default(); state = d; }
-      state.selectedClassId = state.classes[0].id; save();
-    };
+    const gkey = (cid,sid,wid) => `${cid}|${sid}|${wid}`;
+    const getG = (cid,sid,wid) => state.grades[gkey(cid,sid,wid)] || {score:undefined, absent:false, ec:false, ecPoints:0};
+    const setG = (cid,sid,wid,obj) => { state.grades[gkey(cid,sid,wid)] = obj; save(); };
     const pctToLetter = n => { if(isNaN(n)) return '-'; if(n>=90) return 'A'; if(n>=80) return 'B'; if(n>=70) return 'C'; if(n>=60) return 'D'; return 'F'; };
 
-    // --- UI Rendering ------------------------------------------------------------
+    function deleteStudent(sid){
+      const c=getSelectedClass();
+      state.students = state.students.filter(s=> !(s.id===sid && s.classId===c.id));
+      for(const k of Object.keys(state.grades)) if(k.startsWith(`${c.id}|${sid}|`)) delete state.grades[k];
+      save(); renderAll();
+    }
+    function deleteWeek(wid){
+      const c=getSelectedClass();
+      state.weeks = state.weeks.filter(w=> !(w.id===wid && w.classId===c.id));
+      for(const k of Object.keys(state.grades)) if(k.endsWith(`|${wid}`) && k.startsWith(`${c.id}|`)) delete state.grades[k];
+      save(); renderAll();
+    }
+
+    // Average: EC adds directly to that week's score; absent is informational only
+    function calcStudentAverage(cId, sId){
+      const wks = weeksByClass(cId);
+      const scores = [];
+      wks.forEach(w=>{
+        const g=getG(cId,sId,w.id);
+        let sc = (typeof g.score==='number' && !isNaN(g.score)) ? Number(g.score) : NaN;
+        if (isNaN(sc)) return;
+        if (g.ec) {
+          const bonus = (typeof g.ecPoints==='number' && !isNaN(g.ecPoints)) ? Number(g.ecPoints) : 0;
+          sc = Math.min(100, sc + bonus); // cap at 100 — tweak if you want different cap
+        }
+        scores.push(sc);
+      });
+      return scores.length ? (scores.reduce((a,b)=>a+b,0)/scores.length) : NaN;
+    }
+
+    // --- UI: classes & sidebar ---------------------------------------------------
     function renderClassList(){
       const list = el('classList'); list.innerHTML='';
       state.classes.forEach(c=>{
@@ -180,19 +236,9 @@
                            <button title="Rename" data-act="rename" data-id="${c.id}">✏️</button>
                            <button title="Delete" data-act="delete" data-id="${c.id}">🗑️</button>
                          </div>`;
-        div.addEventListener('click', (e)=>{
-          if(e.target.dataset.act){ return; }
-          state.selectedClassId=c.id; save(); renderAll();
-        });
-        div.querySelector('[data-act="rename"]').addEventListener('click', (e)=>{
-          e.stopPropagation();
-          const name = prompt('Class name:', c.name);
-          if(name && name.trim()){ c.name=name.trim(); save(); renderAll(); }
-        });
-        div.querySelector('[data-act="delete"]').addEventListener('click', (e)=>{
-          e.stopPropagation();
-          if(confirm('Delete class and its data?')){ delClass(c.id); renderAll(); }
-        });
+        div.addEventListener('click',(e)=>{ if(e.target.dataset.act) return; state.selectedClassId=c.id; save(); renderAll(); });
+        div.querySelector('[data-act="rename"]').addEventListener('click',(e)=>{e.stopPropagation(); const name=prompt('Class name:', c.name); if(name&&name.trim()){ c.name=name.trim(); save(); renderAll(); }});
+        div.querySelector('[data-act="delete"]').addEventListener('click',(e)=>{e.stopPropagation(); if(confirm('Delete class and its data?')){ const cid=c.id; state.classes=state.classes.filter(x=>x.id!==cid); state.students=state.students.filter(x=>x.classId!==cid); state.weeks=state.weeks.filter(x=>x.classId!==cid); for(const k of Object.keys(state.grades)) if(k.startsWith(cid+'|')) delete state.grades[k]; if(!state.classes.length){ state=load(); } else { state.selectedClassId=state.classes[0].id; } save(); renderAll(); }});
         list.appendChild(div);
       });
     }
@@ -207,87 +253,203 @@
       </div>`;
       el('studentCount').textContent = `${studs.length} students`;
       el('weekCount').textContent = `${wks.length} weeks`;
+
+      // Show weeks (Delete only — notes are edited from header)
+      const wkList = el('weekList'); wkList.innerHTML='';
+      wks.forEach(w=>{
+        const chip = document.createElement('div'); chip.className='wk-chip';
+        const lbl = document.createElement('span'); lbl.textContent = `${w.label}${w.date? ' — '+w.date:''}`;
+        const btnDel = document.createElement('button'); btnDel.textContent='🗑️'; btnDel.title='Delete week';
+        btnDel.addEventListener('click', ()=>{ if(confirm(`Delete ${w.label} and its grades?`)) deleteWeek(w.id); });
+        chip.appendChild(lbl); chip.appendChild(btnDel);
+        wkList.appendChild(chip);
+      });
     }
 
+    // --- UI: grid ---------------------------------------------------------------
     function renderGrid(){
       const c = getSelectedClass();
       const studs = studentsByClass(c.id);
       const wks = weeksByClass(c.id);
       const table = el('gradeGrid');
-      const headWeeks = wks.map(w=>`<th title="${w.date||''}">${w.label}</th>`).join('');
+
+      // Header with week notes indicator + editor
+      const headWeeks = wks.map((w,i)=>{
+        const hasNotes = !!(w.notes && w.notes.trim());
+        const safeNotes = (w.notes||'').replaceAll('"','&quot;');
+        return `<th data-wid="${w.id}">
+          <div class="wk-head">
+            <span>${w.label}</span>
+            ${hasNotes ? `<span class="icon-btn" title="${safeNotes}" data-note-btn="${w.id}">📝</span>` : `<span class="icon-btn" title="Add notes" data-note-btn="${w.id}">📝</span>`}
+          </div>
+          <div class="muted" style="font-size:11px">${w.date||''}</div>
+        </th>`;
+      }).join('');
+
       table.innerHTML = `<thead>
-        <tr><th>Student</th>${headWeeks}<th>Average</th><th>Letter</th></tr>
+        <tr><th>Student</th>${headWeeks}<th>Average</th><th>Letter</th><th>Actions</th></tr>
       </thead><tbody></tbody>`;
-      const tbody = table.querySelector('tbody');
 
-      const avgOf = arr => {
-        const nums = arr.filter(v=>typeof v==='number' && !isNaN(v));
-        if(!nums.length) return NaN;
-        return nums.reduce((a,b)=>a+b,0)/nums.length;
-      };
-
-      studs.forEach(s=>{
-        const row = document.createElement('tr');
-        row.innerHTML = `<td style="min-width:180px; font-weight:600">${s.name}</td>`;
-        const vals = [];
-        wks.forEach(w=>{
-          const key = `${c.id}|${s.id}|${w.id}`;
-          const val = state.grades[key];
-          vals.push(typeof val==='number'?val:NaN);
-          const td = document.createElement('td');
-          const input = document.createElement('input');
-          input.type='number'; input.step='0.1'; input.min='0'; input.max='100';
-          input.value = (typeof val==='number' && !isNaN(val))? val : '';
-          input.placeholder='—';
-          input.addEventListener('change',()=>{
-            const num = input.value===''? undefined : Number(input.value);
-            if(num!==undefined && (isNaN(num) || num<0 || num>100)){
-              alert('Enter a number between 0 and 100, or clear the cell.'); input.select(); return;
-            }
-            if(num===undefined){ delete state.grades[key]; } else { setGrade(c.id,s.id,w.id,num); }
-            save(); renderGrid();
+      // Bind header note buttons
+      wks.forEach(w=>{
+        const btn = table.querySelector(`[data-note-btn="${w.id}"]`);
+        if (btn) {
+          btn.addEventListener('click', ()=>{
+            const n = prompt(`Notes for ${w.label}`, w.notes||'');
+            if (n!==null){ w.notes = n; save(); renderGrid(); renderSelectedMeta(); }
           });
-          td.appendChild(input); row.appendChild(td);
+        }
+      });
+
+      // Body rows
+      const tbody = table.querySelector('tbody');
+      studs.forEach(s=>{
+        const row=document.createElement('tr');
+        row.innerHTML = `<td style="min-width:190px; font-weight:600">${s.name}${s.notes?` <span class="muted" title="${s.notes.replaceAll('"','&quot;')}">📝</span>`:''}</td>`;
+
+        wks.forEach(w=>{
+          const td = document.createElement('td');
+          const g = getG(c.id,s.id,w.id);
+
+          const wrap = document.createElement('div'); wrap.className='cell-wrap';
+
+          // Score
+          const input = document.createElement('input');
+          input.type='number'; input.step='0.1'; input.min='0'; input.max='200';
+          input.value = (typeof g.score==='number' && !isNaN(g.score))? g.score : '';
+          input.placeholder='—';
+
+          // Flags: Absent & EC (with points box appearing when EC is checked)
+          const flags = document.createElement('div'); flags.className='flags';
+
+          // Absent
+          const labA = document.createElement('label');
+          const cbA = document.createElement('input'); cbA.type='checkbox'; cbA.checked = !!g.absent; cbA.title='Absent (informational only)';
+          labA.appendChild(cbA); labA.appendChild(document.createTextNode('A'));
+
+          // Extra Credit
+          const labEC = document.createElement('label');
+          const cbEC = document.createElement('input'); cbEC.type='checkbox'; cbEC.checked = !!g.ec; cbEC.title='Extra credit — adds to this week’s score';
+          const ecNum = document.createElement('input'); ecNum.type='number'; ecNum.step='0.1'; ecNum.min='0'; ecNum.max='50';
+          ecNum.value = (typeof g.ecPoints==='number' && !isNaN(g.ecPoints))? g.ecPoints : '';
+          ecNum.placeholder='+';
+          ecNum.style.display = cbEC.checked ? 'inline-block' : 'none';
+          labEC.appendChild(cbEC); labEC.appendChild(document.createTextNode('EC'));
+
+          // Handlers
+          function commit(){
+            const score = input.value===''? undefined : Number(input.value);
+            const ecPoints = (cbEC.checked && ecNum.value!=='') ? Number(ecNum.value) : 0;
+            if(score!==undefined && (isNaN(score) || score<0 || score>200)){ alert('Enter 0–200, or clear.'); input.select(); return; }
+            if(cbEC.checked && (isNaN(ecPoints) || ecPoints<0 || ecPoints>50)){ alert('Enter EC between 0–50.'); ecNum.select(); return; }
+            setG(c.id,s.id,w.id,{score, absent: cbA.checked, ec: cbEC.checked, ecPoints});
+            renderGrid();
+          }
+          input.addEventListener('change', commit);
+          cbA.addEventListener('change', commit);
+          cbEC.addEventListener('change', ()=>{ ecNum.style.display = cbEC.checked ? 'inline-block' : 'none'; commit(); });
+          ecNum.addEventListener('change', commit);
+
+          flags.appendChild(labA);
+          flags.appendChild(labEC);
+          flags.appendChild(ecNum);
+
+          wrap.appendChild(input);
+          wrap.appendChild(flags);
+          td.appendChild(wrap);
+          row.appendChild(td);
         });
-        const avg = avgOf(vals);
-        const letter = pctToLetter(avg);
-        const avgTd = document.createElement('td');
-        avgTd.textContent = isNaN(avg)? '—' : avg.toFixed(2)+'%';
-        const letterTd = document.createElement('td');
-        const span = document.createElement('span'); span.className='pill '+(letter||''); span.textContent = letter; letterTd.appendChild(span);
-        row.appendChild(avgTd); row.appendChild(letterTd);
+
+        const avg = calcStudentAverage(c.id, s.id);
+        const avgTd=document.createElement('td'); avgTd.textContent = isNaN(avg)? '—' : avg.toFixed(2)+'%';
+        const letterTd=document.createElement('td'); letterTd.innerHTML = `<span class="pill ${pctToLetter(avg)}">${pctToLetter(avg)}</span>`;
+
+        const act=document.createElement('td'); act.className='row-actions';
+        const bEdit=document.createElement('button'); bEdit.textContent='✏️ Edit'; bEdit.title='Edit name & notes';
+        bEdit.addEventListener('click', ()=>{
+          const newName = prompt('Edit student name:', s.name);
+          if(newName && newName.trim()) s.name = newName.trim();
+          const newNotes = prompt('Student notes (blank to clear):', s.notes||'');
+          if(newNotes!==null) s.notes = newNotes;
+          save(); renderAll();
+        });
+        const bNotes=document.createElement('button'); bNotes.textContent='📝 Notes'; bNotes.title='Edit notes';
+        bNotes.addEventListener('click', ()=>{
+          const newNotes = prompt('Student notes (blank to clear):', s.notes||'');
+          if(newNotes!==null){ s.notes=newNotes; save(); renderAll(); }
+        });
+        const bExp=document.createElement('button'); bExp.textContent='⬇️ Export'; bExp.title='Export this student CSV';
+        bExp.addEventListener('click', ()=> exportStudentCSV(c.id, s.id));
+        const bDel=document.createElement('button'); bDel.textContent='🗑️ Delete'; bDel.title='Remove student';
+        bDel.addEventListener('click', ()=>{ if(confirm(`Remove ${s.name} and their grades?`)) deleteStudent(s.id); });
+
+        act.appendChild(bEdit); act.appendChild(bNotes); act.appendChild(bExp); act.appendChild(bDel);
+
+        row.appendChild(avgTd); row.appendChild(letterTd); row.appendChild(act);
         tbody.appendChild(row);
       });
 
-      // Summary row
+      // Summary row (weekly avg ignores missing scores; EC already included in cell scores for final avg)
       if(studs.length && wks.length){
-        const footer = document.createElement('tr');
+        const footer=document.createElement('tr');
         footer.innerHTML = `<td style="font-weight:700">Class Avg</td>`;
+        // per-week average
         wks.forEach(w=>{
-          const vals = studs.map(s=> getGrade(c.id,s.id,w.id)).filter(v=>typeof v==='number');
-          const avg = vals.length? (vals.reduce((a,b)=>a+b,0)/vals.length) : NaN;
-          const td = document.createElement('td'); td.className='muted';
+          let sum=0, cnt=0;
+          studs.forEach(s=>{
+            const g=getG(c.id,s.id,w.id);
+            let sc=(typeof g.score==='number' && !isNaN(g.score))? Number(g.score):NaN;
+            if(isNaN(sc)) return;
+            if (g.ec) {
+              const bonus = (typeof g.ecPoints==='number' && !isNaN(g.ecPoints)) ? Number(g.ecPoints) : 0;
+              sc = Math.min(100, sc + bonus);
+            }
+            sum+=sc; cnt++;
+          });
+          const td=document.createElement('td'); td.className='muted';
+          const avg = cnt? (sum/cnt) : NaN;
           td.textContent = isNaN(avg)? '—' : avg.toFixed(1)+'%';
           footer.appendChild(td);
         });
-        // class overall avg
-        const perStudent = studs.map(s=>{
-          const vals = wks.map(w=> getGrade(c.id,s.id,w.id)).filter(v=>typeof v==='number');
-          return vals.length? (vals.reduce((a,b)=>a+b,0)/vals.length): NaN;
-        }).filter(v=>!isNaN(v));
-        const overall = perStudent.length? (perStudent.reduce((a,b)=>a+b,0)/perStudent.length): NaN;
-        const tdAvg = document.createElement('td'); tdAvg.className='muted';
-        tdAvg.textContent = isNaN(overall)? '—' : overall.toFixed(2)+'%';
-        const tdLet = document.createElement('td');
-        tdLet.innerHTML = `<span class="pill ${pctToLetter(overall)}">${pctToLetter(overall)}</span>`;
-        footer.appendChild(tdAvg); footer.appendChild(tdLet);
+        // overall using students' final
+        const finals = studs.map(s=> calcStudentAverage(c.id,s.id)).filter(v=>!isNaN(v));
+        const overall = finals.length? (finals.reduce((a,b)=>a+b,0)/finals.length): NaN;
+        const tdAvg=document.createElement('td'); tdAvg.className='muted'; tdAvg.textContent = isNaN(overall)? '—' : overall.toFixed(2)+'%';
+        const tdLet=document.createElement('td'); tdLet.innerHTML = `<span class="pill ${pctToLetter(overall)}">${pctToLetter(overall)}</span>`;
+        const tdEmpty=document.createElement('td'); tdEmpty.textContent='';
+        footer.appendChild(tdAvg); footer.appendChild(tdLet); footer.appendChild(tdEmpty);
         tbody.appendChild(footer);
       }
     }
 
     function renderAll(){ renderClassList(); renderSelectedMeta(); renderGrid(); }
 
-    // --- Event wiring ------------------------------------------------------------
+    // --- CSV ---------------------------------------------------------------------
+    function exportStudentCSV(cId, sId){
+      const c = state.classes.find(x=>x.id===cId);
+      const s = state.students.find(x=>x.id===sId);
+      const wks = weeksByClass(cId);
+      const header = ['Student', ...wks.map(w=>w.label), 'Average','Letter'];
+      const vals = wks.map(w=>{
+        const g = getG(cId,sId,w.id);
+        if (typeof g.score==='number' && !isNaN(g.score)){
+          const parts = [g.score];
+          if (g.absent) parts.push('(A)');
+          if (g.ec && g.ecPoints) parts.push(`+${g.ecPoints}`);
+          return parts.join(' ');
+        }
+        return g.absent ? 'ABS' : '';
+      });
+      const avg = calcStudentAverage(cId, sId);
+      const row = [s.name, ...vals, isNaN(avg)? '' : avg.toFixed(2), pctToLetter(avg)];
+      const csv = [header, row].map(r=> r.map(x=>`"${(x??'').toString().replaceAll('"','""')}"`).join(',')).join('\n');
+      const blob = new Blob([csv],{type:'text/csv;charset=utf-8'});
+      const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
+      a.download=`${(c.name+'_'+s.name).replace(/[^a-z0-9]+/gi,'_')}_grades.csv`; a.click();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 1500);
+    }
+
+    // --- Events (same IDs) -------------------------------------------------------
     document.getElementById('btn-add-class').addEventListener('click',()=>{
       const name = prompt('New class name (e.g., Biology — Period 3)');
       if(!name || !name.trim()) return;
@@ -299,7 +461,7 @@
       const name = el('studentName').value.trim();
       if(!name){ alert('Enter the student\'s full name.'); return; }
       const c = getSelectedClass();
-      state.students.push({id:uid(), classId:c.id, name});
+      state.students.push({id:uid(), classId:c.id, name, notes:''});
       el('studentName').value=''; save(); renderAll();
     });
 
@@ -307,7 +469,7 @@
       const label = el('weekLabel').value.trim() || `Week ${weeksByClass(getSelectedClass().id).length+1}`;
       const date = el('weekDate').value || '';
       const c = getSelectedClass();
-      state.weeks.push({id:uid(), classId:c.id, label, date});
+      state.weeks.push({id:uid(), classId:c.id, label, date, notes:''});
       el('weekLabel').value=''; el('weekDate').value='';
       save(); renderAll();
     }
@@ -319,24 +481,29 @@
       const studs = studentsByClass(c.id); const wks = weeksByClass(c.id);
       const header = ['Student', ...wks.map(w=>w.label), 'Average','Letter'];
       const rows = studs.map(s=>{
-        const vals = wks.map(w=>{
-          const v = getGrade(c.id,s.id,w.id);
-          return (typeof v==='number' && !isNaN(v))? v.toString() : '';
+        const cells = wks.map(w=>{
+          const g = getG(c.id,s.id,w.id);
+          if (typeof g.score==='number' && !isNaN(g.score)){
+            const parts = [g.score];
+            if (g.absent) parts.push('(A)');
+            if (g.ec && g.ecPoints) parts.push(`+${g.ecPoints}`);
+            return parts.join(' ');
+          }
+          return g.absent ? 'ABS' : '';
         });
-        const nums = vals.map(Number).filter(n=>!isNaN(n));
-        const avg = nums.length? (nums.reduce((a,b)=>a+b,0)/nums.length): NaN;
-        return [s.name, ...vals, isNaN(avg)? '' : avg.toFixed(2), pctToLetter(avg)];
+        const avg = calcStudentAverage(c.id, s.id);
+        return [s.name, ...cells, isNaN(avg)? '' : avg.toFixed(2), pctToLetter(avg)];
       });
       const csv = [header, ...rows].map(r=> r.map(x=>`"${(x??'').toString().replaceAll('"','""')}"`).join(',')).join('\n');
       const blob = new Blob([csv],{type:'text/csv;charset=utf-8'});
       const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`${c.name.replace(/[^a-z0-9]+/gi,'_')}_gradebook.csv`; a.click();
-      setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+      setTimeout(()=>URL.revokeObjectURL(a.href), 1500);
     });
 
     document.getElementById('btn-save-json').addEventListener('click',()=>{
       const blob = new Blob([JSON.stringify(state,null,2)], {type:'application/json'});
       const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='opengrade_data.json'; a.click();
-      setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+      setTimeout(()=>URL.revokeObjectURL(a.href), 1500);
     });
 
     document.getElementById('import-json').addEventListener('change', (e)=>{
@@ -345,16 +512,17 @@
         try{
           const data = JSON.parse(reader.result);
           if(!data || !data.classes) throw new Error('Invalid format');
+          data.students = (data.students||[]).map(s=>({...s, notes: s.notes||''}));
+          data.weeks = (data.weeks||[]).map(w=>({...w, notes: w.notes||''}));
+          const up={}; for(const k of Object.keys(data.grades||{})){ const v=data.grades[k]; if(typeof v==='number') up[k]={score:v, absent:false, ec:false, ecPoints:0}; else up[k]={score:(v&&typeof v.score==='number')?v.score:undefined, absent:!!(v&&v.absent), ec:!!(v&&v.ec), ecPoints:(v&&typeof v.ecPoints==='number')?v.ecPoints:0}; }
+          data.grades=up;
           state = data; save(); renderAll(); alert('Import successful.');
         }catch(err){ alert('Could not import: '+err.message); }
-      }; reader.readAsText(file);
-      e.target.value = '';
+      }; reader.readAsText(file); e.target.value='';
     });
 
     document.getElementById('btn-reset').addEventListener('click',()=>{
-      if(confirm('Clear all local data and reset demo?')){
-        storage.remove(KEY); state = load(); renderAll();
-      }
+      if(confirm('Clear all local data and reset demo?')){ storage.remove(KEY); state = load(); renderAll(); }
     });
 
     // Init
