@@ -390,23 +390,24 @@
     function closeModal(){ el('studentModal').style.display='none'; }
 
     // --- Events -----------------------------------------------------------------
-    document.getElementById('btn-print-class').addEventListener('click', printClassReport);
+    const on = (id, evt, fn) => { const node = document.getElementById(id); if(node) node.addEventListener(evt, fn); };
+    on('btn-print-class','click', printClassReport);
 
-    document.getElementById('btn-add-class').addEventListener('click',()=>{
+    on('btn-add-class','click',()=>{
       const name = prompt('New class name (e.g., Biology — Period 3)'); if(!name||!name.trim()) return;
       const c = {id:uid(), name:name.trim(), logoUrl:''}; state.classes.push(c); state.selectedClassId=c.id; save(); renderAll();
     });
 
-    document.getElementById('btn-add-student').addEventListener('click',()=>{
+    on('btn-add-student','click',()=>{
       const name = el('studentName').value.trim(); if(!name){ alert('Enter the student\'s full name.'); return; }
       const c = getSelectedClass(); state.students.push({id:uid(), classId:c.id, name, notes:''}); el('studentName').value=''; save(); renderAll();
     });
 
     function addWeek(){ const label = el('weekLabel').value.trim() || `Week ${weeksByClass(getSelectedClass().id).length+1}`; const date = el('weekDate').value||''; const c=getSelectedClass(); state.weeks.push({id:uid(), classId:c.id, label, date}); el('weekLabel').value=''; el('weekDate').value=''; save(); renderAll(); }
-    document.getElementById('btn-add-week').addEventListener('click', addWeek);
-    document.getElementById('btn-add-week-top').addEventListener('click', addWeek);
+    on('btn-add-week','click', addWeek);
+    on('btn-add-week-top','click', addWeek);
 
-    document.getElementById('btn-export-csv').addEventListener('click',()=>{
+    on('btn-export-csv','click',()=>{
       const c=getSelectedClass(); const studs=studentsByClass(c.id); const wks=weeksByClass(c.id);
       const header=['Student', ...wks.map(w=>w.label), 'Average','Letter'];
       const rows = studs.map(s=>{ const vals=wks.map(w=>{ const v=getGrade(c.id,s.id,w.id); return (typeof v==='number'&&!isNaN(v))? v.toString():''; }); const nums=vals.map(Number).filter(n=>!isNaN(n)); const avg=nums.length? (nums.reduce((a,b)=>a+b,0)/nums.length):NaN; return [s.name, ...vals, isNaN(avg)?'':avg.toFixed(2), pctToLetter(avg)]; });
@@ -415,19 +416,19 @@
       const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`${c.name.replace(/[^a-z0-9]+/gi,'_')}_gradebook.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
     });
 
-    document.getElementById('btn-save-json').addEventListener('click',()=>{ const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='opengrade_data.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); });
+    on('btn-save-json','click',()=>{ const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='opengrade_data.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); });
 
-    document.getElementById('import-json').addEventListener('change', (e)=>{ const file=e.target.files?.[0]; if(!file) return; const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(reader.result); if(!data||!data.classes) throw new Error('Invalid format'); state=data; // migrations
+    on('import-json','change', (e)=>{ const file=e.target.files?.[0]; if(!file) return; const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(reader.result); if(!data||!data.classes) throw new Error('Invalid format'); state=data; // migrations
       state.classes = state.classes.map(c=>({...c, logoUrl:c.logoUrl||''})); state.students = state.students.map(s=>({...s, notes:s.notes||''})); save(); renderAll(); alert('Import successful.'); }catch(err){ alert('Could not import: '+err.message); } }; reader.readAsText(file); e.target.value=''; });
 
-    document.getElementById('btn-reset').addEventListener('click',()=>{ if(confirm('Clear all local data and reset demo?')){ storage.remove(KEY); state=load(); renderAll(); }});
+    on('btn-reset','click',()=>{ if(confirm('Clear all local data and reset demo?')){ storage.remove(KEY); state=load(); renderAll(); }});
 
-    document.getElementById('btn-apply-logo').addEventListener('click',()=>{ const c=getSelectedClass(); c.logoUrl = el('logoUrl').value.trim(); save(); renderSelectedMeta(); });
+    on('btn-apply-logo','click',()=>{ const c=getSelectedClass(); c.logoUrl = el('logoUrl').value.trim(); save(); renderSelectedMeta(); });
 
     // modal events
-    el('modalClose').addEventListener('click', closeModal);
-    el('modalSave').addEventListener('click', ()=>{ if(!modalStudentId) return; const s=state.students.find(x=>x.id===modalStudentId); if(!s) return; s.name=el('modalStudentName').value.trim()||s.name; s.notes=el('modalStudentNotes').value; save(); closeModal(); renderAll(); });
-    el('modalDelete').addEventListener('click', ()=>{ if(!modalStudentId) return; if(confirm('Delete this student?')){ deleteStudent(modalStudentId); closeModal(); }});
+    on('modalClose','click', closeModal);
+    on('modalSave','click', ()=>{ if(!modalStudentId) return; const s=state.students.find(x=>x.id===modalStudentId); if(!s) return; s.name=el('modalStudentName').value.trim()||s.name; s.notes=el('modalStudentNotes').value; save(); closeModal(); renderAll(); });
+    on('modalDelete','click', ()=>{ if(!modalStudentId) return; if(confirm('Delete this student?')){ deleteStudent(modalStudentId); closeModal(); }});
 
     // Init
     if(!state.selectedClassId) state.selectedClassId = state.classes[0]?.id; renderAll();
@@ -828,23 +829,24 @@
     function closeModal(){ el('studentModal').style.display='none'; }
 
     // --- Events -----------------------------------------------------------------
-    document.getElementById('btn-print-class').addEventListener('click', printClassReport);
+    const on = (id, evt, fn) => { const node = document.getElementById(id); if(node) node.addEventListener(evt, fn); };
+    on('btn-print-class','click', printClassReport);
 
-    document.getElementById('btn-add-class').addEventListener('click',()=>{
+    on('btn-add-class','click',()=>{
       const name = prompt('New class name (e.g., Biology — Period 3)'); if(!name||!name.trim()) return;
       const c = {id:uid(), name:name.trim(), logoUrl:''}; state.classes.push(c); state.selectedClassId=c.id; save(); renderAll();
     });
 
-    document.getElementById('btn-add-student').addEventListener('click',()=>{
+    on('btn-add-student','click',()=>{
       const name = el('studentName').value.trim(); if(!name){ alert('Enter the student\'s full name.'); return; }
       const c = getSelectedClass(); state.students.push({id:uid(), classId:c.id, name, notes:''}); el('studentName').value=''; save(); renderAll();
     });
 
     function addWeek(){ const label = el('weekLabel').value.trim() || `Week ${weeksByClass(getSelectedClass().id).length+1}`; const date = el('weekDate').value||''; const c=getSelectedClass(); state.weeks.push({id:uid(), classId:c.id, label, date}); el('weekLabel').value=''; el('weekDate').value=''; save(); renderAll(); }
-    document.getElementById('btn-add-week').addEventListener('click', addWeek);
-    document.getElementById('btn-add-week-top').addEventListener('click', addWeek);
+    on('btn-add-week','click', addWeek);
+    on('btn-add-week-top','click', addWeek);
 
-    document.getElementById('btn-export-csv').addEventListener('click',()=>{
+    on('btn-export-csv','click',()=>{
       const c=getSelectedClass(); const studs=studentsByClass(c.id); const wks=weeksByClass(c.id);
       const header=['Student', ...wks.map(w=>w.label), 'Average','Letter'];
       const rows = studs.map(s=>{ const vals=wks.map(w=>{ const v=getGrade(c.id,s.id,w.id); return (typeof v==='number'&&!isNaN(v))? v.toString():''; }); const nums=vals.map(Number).filter(n=>!isNaN(n)); const avg=nums.length? (nums.reduce((a,b)=>a+b,0)/nums.length):NaN; return [s.name, ...vals, isNaN(avg)?'':avg.toFixed(2), pctToLetter(avg)]; });
@@ -853,19 +855,19 @@
       const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`${c.name.replace(/[^a-z0-9]+/gi,'_')}_gradebook.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
     });
 
-    document.getElementById('btn-save-json').addEventListener('click',()=>{ const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='opengrade_data.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); });
+    on('btn-save-json','click',()=>{ const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='opengrade_data.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); });
 
-    document.getElementById('import-json').addEventListener('change', (e)=>{ const file=e.target.files?.[0]; if(!file) return; const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(reader.result); if(!data||!data.classes) throw new Error('Invalid format'); state=data; // migrations
+    on('import-json','change', (e)=>{ const file=e.target.files?.[0]; if(!file) return; const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(reader.result); if(!data||!data.classes) throw new Error('Invalid format'); state=data; // migrations
       state.classes = state.classes.map(c=>({...c, logoUrl:c.logoUrl||''})); state.students = state.students.map(s=>({...s, notes:s.notes||''})); save(); renderAll(); alert('Import successful.'); }catch(err){ alert('Could not import: '+err.message); } }; reader.readAsText(file); e.target.value=''; });
 
-    document.getElementById('btn-reset').addEventListener('click',()=>{ if(confirm('Clear all local data and reset demo?')){ storage.remove(KEY); state=load(); renderAll(); }});
+    on('btn-reset','click',()=>{ if(confirm('Clear all local data and reset demo?')){ storage.remove(KEY); state=load(); renderAll(); }});
 
-    document.getElementById('btn-apply-logo').addEventListener('click',()=>{ const c=getSelectedClass(); c.logoUrl = el('logoUrl').value.trim(); save(); renderSelectedMeta(); });
+    on('btn-apply-logo','click',()=>{ const c=getSelectedClass(); c.logoUrl = el('logoUrl').value.trim(); save(); renderSelectedMeta(); });
 
     // modal events
-    el('modalClose').addEventListener('click', closeModal);
-    el('modalSave').addEventListener('click', ()=>{ if(!modalStudentId) return; const s=state.students.find(x=>x.id===modalStudentId); if(!s) return; s.name=el('modalStudentName').value.trim()||s.name; s.notes=el('modalStudentNotes').value; save(); closeModal(); renderAll(); });
-    el('modalDelete').addEventListener('click', ()=>{ if(!modalStudentId) return; if(confirm('Delete this student?')){ deleteStudent(modalStudentId); closeModal(); }});
+    on('modalClose','click', closeModal);
+    on('modalSave','click', ()=>{ if(!modalStudentId) return; const s=state.students.find(x=>x.id===modalStudentId); if(!s) return; s.name=el('modalStudentName').value.trim()||s.name; s.notes=el('modalStudentNotes').value; save(); closeModal(); renderAll(); });
+    on('modalDelete','click', ()=>{ if(!modalStudentId) return; if(confirm('Delete this student?')){ deleteStudent(modalStudentId); closeModal(); }});
 
     // Init
     if(!state.selectedClassId) state.selectedClassId = state.classes[0]?.id; renderAll();
