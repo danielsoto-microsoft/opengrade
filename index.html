@@ -159,6 +159,23 @@
   </div>
 
   <script>
+    // --- Safety utilities & polyfills (GitHub Pages friendly) -------------------
+    // Polyfill String.replaceAll for older browsers
+    if (!String.prototype.replaceAll) {
+      String.prototype.replaceAll = function(search, replace) {
+        return this.split(search).join(replace);
+      };
+    }
+    // Show any runtime errors on the page so failures don't look like "dead" buttons
+    window.addEventListener('error', (e) => {
+      try {
+        const bar = document.createElement('div');
+        bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:9999;background:#fee;border-bottom:1px solid #fca5a5;color:#991b1b;padding:8px 12px;font-family:system-ui;font-size:12px';
+        bar.textContent = 'Script error: ' + (e?.message || 'Unknown error');
+        document.body.appendChild(bar);
+        console.error('OpenGrade runtime error', e.error || e);
+      } catch(_) {}
+    });
     // --- Data layer with storage shim -------------------------------------------
     const KEY = 'opengrade_v3_pdf_notes';
     const storage = (()=>{ try{ const t='__og_test__'; localStorage.setItem(t,'1'); localStorage.removeItem(t); return {get:(k)=>localStorage.getItem(k), set:(k,v)=>localStorage.setItem(k,v), remove:(k)=>localStorage.removeItem(k)} } catch(e){ let mem={}; return {get:(k)=>mem[k]??null, set:(k,v)=>{mem[k]=v}, remove:(k)=>{delete mem[k]}} } })();
@@ -389,490 +406,76 @@
     }
     function closeModal(){ el('studentModal').style.display='none'; }
 
-    // --- Events -----------------------------------------------------------------
-    const on = (id, evt, fn) => { const node = document.getElementById(id); if(node) node.addEventListener(evt, fn); };
-    on('btn-print-class','click', printClassReport);
+    // --- Events & Init (run after DOM is ready) -----------------------------------
+    function afterReady(){
+      // feature detection for downloads in sandboxed previews
+      const isDownloadSupported = (()=>{ try{ const a=document.createElement('a'); return typeof URL.createObjectURL==='function' && 'download' in a; }catch(e){ return false; } })();
 
-    on('btn-add-class','click',()=>{
-      const name = prompt('New class name (e.g., Biology — Period 3)'); if(!name||!name.trim()) return;
-      const c = {id:uid(), name:name.trim(), logoUrl:''}; state.classes.push(c); state.selectedClassId=c.id; save(); renderAll();
-    });
+      const on = (id, evt, fn) => { const node = document.getElementById(id); if(node) node.addEventListener(evt, fn); };
+      on('btn-print-class','click', ()=>{
+        try{ printClassReport(); }catch(e){ alert('Printing is restricted in this preview. Try on GitHub Pages.'); }
+      });
 
-    on('btn-add-student','click',()=>{
-      const name = el('studentName').value.trim(); if(!name){ alert('Enter the student\'s full name.'); return; }
-      const c = getSelectedClass(); state.students.push({id:uid(), classId:c.id, name, notes:''}); el('studentName').value=''; save(); renderAll();
-    });
+      on('btn-add-class','click',()=>{
+        const name = prompt('New class name (e.g., Biology — Period 3)'); if(!name||!name.trim()) return;
+        const c = {id:uid(), name:name.trim(), logoUrl:''}; state.classes.push(c); state.selectedClassId=c.id; save(); renderAll();
+      });
 
-    function addWeek(){ const label = el('weekLabel').value.trim() || `Week ${weeksByClass(getSelectedClass().id).length+1}`; const date = el('weekDate').value||''; const c=getSelectedClass(); state.weeks.push({id:uid(), classId:c.id, label, date}); el('weekLabel').value=''; el('weekDate').value=''; save(); renderAll(); }
-    on('btn-add-week','click', addWeek);
-    on('btn-add-week-top','click', addWeek);
+      on('btn-add-student','click',()=>{
+        const name = el('studentName').value.trim(); if(!name){ alert('Enter the student\'s full name.'); return; }
+        const c = getSelectedClass(); state.students.push({id:uid(), classId:c.id, name, notes:''}); el('studentName').value=''; save(); renderAll();
+      });
 
-    on('btn-export-csv','click',()=>{
-      const c=getSelectedClass(); const studs=studentsByClass(c.id); const wks=weeksByClass(c.id);
-      const header=['Student', ...wks.map(w=>w.label), 'Average','Letter'];
-      const rows = studs.map(s=>{ const vals=wks.map(w=>{ const v=getGrade(c.id,s.id,w.id); return (typeof v==='number'&&!isNaN(v))? v.toString():''; }); const nums=vals.map(Number).filter(n=>!isNaN(n)); const avg=nums.length? (nums.reduce((a,b)=>a+b,0)/nums.length):NaN; return [s.name, ...vals, isNaN(avg)?'':avg.toFixed(2), pctToLetter(avg)]; });
-      const csv=[header,...rows].map(r=> r.map(x=>`"${(x??'').toString().replaceAll('"','""')}"`).join(',')).join('
+      function addWeek(){ const label = el('weekLabel').value.trim() || `Week ${weeksByClass(getSelectedClass().id).length+1}`; const date = el('weekDate').value||''; const c=getSelectedClass(); state.weeks.push({id:uid(), classId:c.id, label, date}); el('weekLabel').value=''; el('weekDate').value=''; save(); renderAll(); }
+      on('btn-add-week','click', addWeek);
+      on('btn-add-week-top','click', addWeek);
+
+      on('btn-export-csv','click',()=>{
+        const c=getSelectedClass(); const studs=studentsByClass(c.id); const wks=weeksByClass(c.id);
+        const header=['Student', ...wks.map(w=>w.label), 'Average','Letter'];
+        const rows = studs.map(s=>{ const vals=wks.map(w=>{ const v=getGrade(c.id,s.id,w.id); return (typeof v==='number'&&!isNaN(v))? v.toString():''; }); const nums=vals.map(Number).filter(n=>!isNaN(n)); const avg=nums.length? (nums.reduce((a,b)=>a+b,0)/nums.length):NaN; return [s.name, ...vals, isNaN(avg)?'':avg.toFixed(2), pctToLetter(avg)]; });
+        const csv=[header,...rows].map(r=> r.map(x=>`"${(x??'').toString().replaceAll('"','""')}"`).join(',')).join('
 ');
-      const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`${c.name.replace(/[^a-z0-9]+/gi,'_')}_gradebook.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
-    });
-
-    on('btn-save-json','click',()=>{ const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='opengrade_data.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); });
-
-    on('import-json','change', (e)=>{ const file=e.target.files?.[0]; if(!file) return; const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(reader.result); if(!data||!data.classes) throw new Error('Invalid format'); state=data; // migrations
-      state.classes = state.classes.map(c=>({...c, logoUrl:c.logoUrl||''})); state.students = state.students.map(s=>({...s, notes:s.notes||''})); save(); renderAll(); alert('Import successful.'); }catch(err){ alert('Could not import: '+err.message); } }; reader.readAsText(file); e.target.value=''; });
-
-    on('btn-reset','click',()=>{ if(confirm('Clear all local data and reset demo?')){ storage.remove(KEY); state=load(); renderAll(); }});
-
-    on('btn-apply-logo','click',()=>{ const c=getSelectedClass(); c.logoUrl = el('logoUrl').value.trim(); save(); renderSelectedMeta(); });
-
-    // modal events
-    on('modalClose','click', closeModal);
-    on('modalSave','click', ()=>{ if(!modalStudentId) return; const s=state.students.find(x=>x.id===modalStudentId); if(!s) return; s.name=el('modalStudentName').value.trim()||s.name; s.notes=el('modalStudentNotes').value; save(); closeModal(); renderAll(); });
-    on('modalDelete','click', ()=>{ if(!modalStudentId) return; if(confirm('Delete this student?')){ deleteStudent(modalStudentId); closeModal(); }});
-
-    // Init
-    if(!state.selectedClassId) state.selectedClassId = state.classes[0]?.id; renderAll();
-    // Expose print function for row buttons
-    window.printStudentReport = printStudentReport;
-  </script>
-</body>
-</html>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OpenGrade — Gradebook with PDF & Student Notes</title>
-  <style>
-    :root{
-      --bg:#0f172a; --panel:#111827; --muted:#94a3b8; --text:#e5e7eb;
-      --accent:#22c55e; --accent-2:#3b82f6; --warn:#f59e0b; --danger:#ef4444;
-      --card:#0b1220; --border:#1f2937;
-    }
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{margin:0; background:linear-gradient(180deg,#0b1020 0%, #0a0f1a 100%);
-      color:var(--text); font-family:system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial}
-    header{position:sticky; top:0; z-index:3; background:rgba(12,18,32,.92); backdrop-filter:saturate(120%) blur(8px);
-      border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px; padding:10px 14px}
-    header h1{font-size:18px; margin:0; letter-spacing:.3px}
-    header .actions{margin-left:auto; display:flex; flex-wrap:wrap; gap:8px}
-    button,.btn{background:linear-gradient(180deg,#1d2a44,#111a2c); color:#e8f0ff; border:1px solid #1f2b45; border-radius:10px; padding:8px 12px; font-weight:600; cursor:pointer; transition:transform .06s, box-shadow .2s, background .2s}
-    button:hover{transform:translateY(-1px); box-shadow:0 4px 16px rgba(0,0,0,.35)}
-    button.primary{background:linear-gradient(180deg,#1a3a2a,#10291d); border-color:#1e3a2a}
-    button.accent{background:linear-gradient(180deg,#12335d,#0f2748); border-color:#17365e}
-    button.warn{background:linear-gradient(180deg,#5a3b12,#3d280b); border-color:#6b400e}
-    .app{display:grid; grid-template-columns:290px 1fr; height:calc(100% - 58px)}
-    aside{border-right:1px solid var(--border); padding:14px; overflow:auto; background:linear-gradient(180deg,#0a1222,#0a111b)}
-    .section-title{font-size:12px; letter-spacing:.5px; text-transform:uppercase; color:var(--muted); margin:8px 0}
-    .class-list{display:flex; flex-direction:column; gap:8px}
-    .class-item{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 12px; border:1px solid var(--border); border-radius:12px; cursor:pointer; background:linear-gradient(180deg,#0d1626,#0b1220)}
-    .class-item.active{outline:1px solid #3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.15)}
-    .class-item .name{font-weight:600}
-    main{padding:16px; overflow:auto}
-    .toolbar{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px}
-    .toolbar .spacer{flex:1}
-    .card{background:linear-gradient(180deg,#0c1426,#0a111e); border:1px solid var(--border); border-radius:14px; padding:12px}
-    .grid{width:100%; border-collapse:separate; border-spacing:0; min-width:820px}
-    .grid th,.grid td{border-bottom:1px solid #1b2538; padding:10px; text-align:left}
-    .grid thead th{position:sticky; top:0; background:#0b1220; z-index:2}
-    .grid tbody tr:hover{background:#0d1526}
-    .grid th:first-child,.grid td:first-child{position:sticky; left:0; background:#0b1220; z-index:1}
-    .tag{font-size:11px; padding:3px 8px; border-radius:999px; border:1px solid var(--border); color:var(--muted)}
-    input[type="number"], input[type="text"], input[type="date"], textarea{width:100%; padding:8px 10px; border-radius:8px; border:1px solid #22304a; background:#0c1526; color:var(--text)}
-    textarea{min-height:80px; resize:vertical}
-    .pill{padding:4px 8px; border-radius:999px; font-weight:700}
-    .A{background:#123b22}.B{background:#1a2f55}.C{background:#4a3412}.D{background:#4a1b12}.F{background:#3a0f0f}
-    .muted{color:var(--muted)}
-    .footer{margin-top:12px; font-size:12px; color:var(--muted)}
-    .row-actions{display:flex; gap:6px}
-    .small{font-size:12px}
-
-    /* Modal */
-    .modal{position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.5); z-index:50}
-    .modal .panel{width:min(640px,92vw); background:#0b1220; border:1px solid var(--border); border-radius:14px; padding:14px}
-    .modal .header{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px}
-
-    /* Print styles */
-    @media print{
-      header, aside, .toolbar, .footer { display:none !important }
-      body{ background:#fff; color:#000 }
-      main{ padding:0 }
-      .card{ border:none }
-      .report-header{ display:flex !important }
-    }
-    .report-header{display:none; align-items:center; gap:12px; margin-bottom:12px}
-    .report-header img{height:52px; width:52px; border-radius:8px; object-fit:cover; border:1px solid #ddd}
-  </style>
-</head>
-<body>
-  <header>
-    <h1>📘 OpenGrade <span class="muted">— PDF Reports & Student Notes</span></h1>
-    <div class="actions">
-      <button id="btn-print-class" class="accent">Print Class PDF</button>
-      <button id="btn-add-class" class="accent">+ Class</button>
-      <button id="btn-export-csv">Export CSV</button>
-      <button id="btn-save-json">Download JSON</button>
-      <label class="btn" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer">
-        <input id="import-json" type="file" accept="application/json" class="sr-only">Import JSON
-      </label>
-      <button id="btn-reset" class="warn">Reset</button>
-    </div>
-  </header>
-  <div class="app">
-    <aside>
-      <div class="section-title">Classes</div>
-      <div id="classList" class="class-list"></div>
-
-      <div class="section-title">Selected</div>
-      <div id="selectedMeta" class="card"></div>
-
-      <div class="section-title">Branding / Report</div>
-      <div class="card">
-        <div class="small muted" style="margin-bottom:6px">Logo URL (optional; appears on PDFs)</div>
-        <div class="row" style="display:flex; gap:8px">
-          <input id="logoUrl" type="text" placeholder="https://…/logo.png" />
-          <button id="btn-apply-logo">Apply</button>
-        </div>
-      </div>
-
-      <div class="section-title">Roster</div>
-      <div class="card">
-        <div style="display:flex; gap:8px; margin-bottom:10px">
-          <input id="studentName" type="text" placeholder="Student full name" />
-          <button id="btn-add-student" class="primary">+ Student</button>
-        </div>
-        <div id="studentList" class="col" style="display:flex; flex-direction:column; gap:6px"></div>
-        <div id="studentCount" class="muted" style="margin-top:6px"></div>
-      </div>
-
-      <div class="section-title">Weeks</div>
-      <div class="card">
-        <div style="display:grid; grid-template-columns:1fr 130px; gap:8px; margin-bottom:10px">
-          <input id="weekLabel" type="text" placeholder="e.g., Week 1" />
-          <input id="weekDate" type="date" />
-        </div>
-        <button id="btn-add-week">+ Week</button>
-        <div id="weekCount" class="muted" style="margin-top:8px"></div>
-      </div>
-    </aside>
-    <main>
-      <div class="report-header" id="reportHeader">
-        <img id="reportLogo" alt="Logo"/>
-        <div>
-          <div id="reportTitle" style="font-weight:700; font-size:18px">Grade Report</div>
-          <div id="reportSubtitle" class="muted" style="font-size:12px"></div>
-        </div>
-      </div>
-
-      <div class="toolbar">
-        <div class="tag" id="gradeScale">Scale: A ≥90, B ≥80, C ≥70, D ≥60</div>
-        <div class="spacer"></div>
-        <button id="btn-add-week-top">+ Week</button>
-      </div>
-      <div class="card">
-        <table class="grid" id="gradeGrid" aria-label="Gradebook table"></table>
-      </div>
-      <div class="footer">Data saves in this browser. Use Download JSON to back up before clearing browser data or switching devices.</div>
-    </main>
-  </div>
-
-  <!-- Student modal -->
-  <div class="modal" id="studentModal" aria-hidden="true" role="dialog">
-    <div class="panel">
-      <div class="header">
-        <div style="font-weight:700">Edit Student</div>
-        <button id="modalClose">✖</button>
-      </div>
-      <div class="col" style="display:flex; flex-direction:column; gap:8px">
-        <input id="modalStudentName" type="text" placeholder="Student name" />
-        <textarea id="modalStudentNotes" placeholder="Notes (attendance, accommodations, conference notes…)"></textarea>
-        <div style="display:flex; gap:8px; justify-content:space-between">
-          <button id="modalDelete" class="warn">Delete Student</button>
-          <div style="display:flex; gap:8px">
-            <button id="modalSave" class="primary">Save</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    // --- Data layer with storage shim -------------------------------------------
-    const KEY = 'opengrade_v3_pdf_notes';
-    const storage = (()=>{ try{ const t='__og_test__'; localStorage.setItem(t,'1'); localStorage.removeItem(t); return {get:(k)=>localStorage.getItem(k), set:(k,v)=>localStorage.setItem(k,v), remove:(k)=>localStorage.removeItem(k)} } catch(e){ let mem={}; return {get:(k)=>mem[k]??null, set:(k,v)=>{mem[k]=v}, remove:(k)=>{delete mem[k]}} } })();
-    const uid = () => Math.random().toString(36).slice(2,10);
-
-    const Default = () => ({
-      classes:[{id:uid(), name:'Algebra I — Period 2', logoUrl:''}],
-      selectedClassId:null,
-      students:[], // {id, classId, name, notes:''}
-      weeks:[],    // {id, classId, label, date}
-      grades:{}    // key: `${classId}|${studentId}|${weekId}` -> number
-    });
-
-    function load(){
-      let raw = storage.get(KEY);
-      if(!raw){
-        const d = Default(); d.selectedClassId = d.classes[0].id;
-        const s1 = {id:uid(), classId:d.selectedClassId, name:'Ava Thompson', notes:'IEP: extended time'};
-        const s2 = {id:uid(), classId:d.selectedClassId, name:'Liam Hernandez', notes:''};
-        const w1 = {id:uid(), classId:d.selectedClassId, label:'Week 1', date:new Date().toISOString().slice(0,10)};
-        const w2 = {id:uid(), classId:d.selectedClassId, label:'Week 2', date:new Date(Date.now()+6*86400000).toISOString().slice(0,10)};
-        d.students.push(s1,s2); d.weeks.push(w1,w2);
-        d.grades[`${d.selectedClassId}|${s1.id}|${w1.id}`]=95;
-        d.grades[`${d.selectedClassId}|${s2.id}|${w1.id}`]=88;
-        storage.set(KEY, JSON.stringify(d));
-        return d;
-      }
-      try{
-        const data = JSON.parse(raw);
-        // migration: ensure logoUrl & notes exist
-        data.classes = data.classes.map(c=> ({...c, logoUrl: c.logoUrl||''}));
-        data.students = data.students.map(s=> ({...s, notes: s.notes||''}));
-        return data;
-      }catch{
-        const d=Default(); storage.set(KEY, JSON.stringify(d)); return d;
-      }
-    }
-    let state = load();
-    const save = () => storage.set(KEY, JSON.stringify(state));
-
-    // --- Helpers -----------------------------------------------------------------
-    const el = id => document.getElementById(id);
-    const getSelectedClass = () => state.classes.find(c=>c.id===state.selectedClassId) || state.classes[0];
-    const studentsByClass = cid => state.students.filter(s=>s.classId===cid);
-    const weeksByClass = cid => state.weeks.filter(w=>w.classId===cid);
-    const getGrade = (cid,sid,wid) => state.grades[`${cid}|${sid}|${wid}`];
-    const setGrade = (cid,sid,wid,val) => { state.grades[`${cid}|${sid}|${wid}`]=val; save(); };
-    const pctToLetter = n => { if(isNaN(n)) return '-'; if(n>=90) return 'A'; if(n>=80) return 'B'; if(n>=70) return 'C'; if(n>=60) return 'D'; return 'F'; };
-
-    function deleteStudent(studentId){
-      const c = getSelectedClass();
-      state.students = state.students.filter(s=>!(s.id===studentId && s.classId===c.id));
-      // remove grades for this student
-      for(const k of Object.keys(state.grades)){
-        if(k.startsWith(`${c.id}|${studentId}|`)) delete state.grades[k];
-      }
-      save();
-      renderAll();
-    }
-
-    // --- UI Rendering ------------------------------------------------------------
-    function renderClassList(){
-      const list = el('classList'); list.innerHTML='';
-      state.classes.forEach(c=>{
-        const div = document.createElement('div'); div.className='class-item'+(c.id===state.selectedClassId?' active':'');
-        div.innerHTML = `<div class="name">${c.name}</div>
-                         <div class="row-actions">
-                           <button title="Rename" data-act="rename" data-id="${c.id}">✏️</button>
-                           <button title="Delete" data-act="delete" data-id="${c.id}">🗑️</button>
-                         </div>`;
-        div.addEventListener('click', (e)=>{ if(e.target.dataset.act) return; state.selectedClassId=c.id; save(); renderAll(); });
-        div.querySelector('[data-act="rename"]').addEventListener('click', (e)=>{ e.stopPropagation(); const name=prompt('Class name:', c.name); if(name && name.trim()){ c.name=name.trim(); save(); renderAll(); }});
-        div.querySelector('[data-act="delete"]').addEventListener('click', (e)=>{ e.stopPropagation(); if(confirm('Delete class and its data?')){ const cid=c.id; // delete class
-          state.classes = state.classes.filter(x=>x.id!==cid);
-          state.students = state.students.filter(x=>x.classId!==cid);
-          state.weeks = state.weeks.filter(x=>x.classId!==cid);
-          for(const k of Object.keys(state.grades)) if(k.startsWith(cid+'|')) delete state.grades[k];
-          if(!state.classes.length){ state=load(); } else { state.selectedClassId=state.classes[0].id; }
-          save(); renderAll(); }});
-        list.appendChild(div);
-      });
-    }
-
-    function renderSelectedMeta(){
-      const c = getSelectedClass();
-      const studs = studentsByClass(c.id); const wks = weeksByClass(c.id);
-      el('selectedMeta').innerHTML = `<div style="display:flex; flex-direction:column; gap:6px">
-        <div><span class="muted">Class:</span> <strong>${c.name}</strong></div>
-        <div><span class="muted">Students:</span> ${studs.length}</div>
-        <div><span class="muted">Weeks:</span> ${wks.length}</div>
-        <div class="small"><span class="muted">Logo:</span> ${c.logoUrl? 'set ✅' : 'not set'}</div>
-      </div>`;
-      el('studentCount').textContent = `${studs.length} students`;
-      el('weekCount').textContent = `${wks.length} weeks`;
-      el('logoUrl').value = c.logoUrl || '';
-    }
-
-    function renderStudentList(){
-      const c = getSelectedClass(); const box=el('studentList'); box.innerHTML='';
-      studentsByClass(c.id).forEach(s=>{
-        const row=document.createElement('div'); row.style.display='flex'; row.style.alignItems='center'; row.style.justifyContent='space-between'; row.style.gap='8px';
-        row.innerHTML=`<div class="small"><strong>${s.name}</strong>${s.notes? ` — <span class='muted'>${s.notes.slice(0,40)}${s.notes.length>40?'…':''}</span>`:''}</div>
-                       <div class="row-actions">
-                         <button title="Edit" data-id="${s.id}">✏️</button>
-                         <button title="Delete" data-id="${s.id}" class="warn">🗑️</button>
-                       </div>`;
-        row.querySelector('button[title="Edit"]').addEventListener('click',()=> openStudentModal(s.id));
-        row.querySelector('button[title="Delete"]').addEventListener('click',()=>{ if(confirm('Delete this student?')) deleteStudent(s.id); });
-        box.appendChild(row);
-      });
-    }
-
-    function renderGrid(){
-      const c = getSelectedClass(); const studs=studentsByClass(c.id); const wks=weeksByClass(c.id);
-      const table=el('gradeGrid');
-      const headWeeks = wks.map(w=>`<th title="${w.date||''}">${w.label}</th>`).join('');
-      table.innerHTML = `<thead><tr><th>Student</th>${headWeeks}<th>Average</th><th>Letter</th><th>Actions</th></tr></thead><tbody></tbody>`;
-      const tbody = table.querySelector('tbody');
-
-      const avgOf = arr => { const nums=arr.filter(v=>typeof v==='number'&&!isNaN(v)); return nums.length? nums.reduce((a,b)=>a+b,0)/nums.length : NaN; };
-
-      studs.forEach(s=>{
-        const row=document.createElement('tr');
-        row.innerHTML = `<td style="min-width:220px; font-weight:600">${s.name}</td>`;
-        const vals=[];
-        wks.forEach(w=>{
-          const key = `${c.id}|${s.id}|${w.id}`;
-          const val = state.grades[key];
-          vals.push(typeof val==='number'? val : NaN);
-          const td=document.createElement('td');
-          const input=document.createElement('input'); input.type='number'; input.step='0.1'; input.min='0'; input.max='100'; input.placeholder='—';
-          input.value=(typeof val==='number'&&!isNaN(val))? val: '';
-          input.addEventListener('change',()=>{
-            const num = input.value===''? undefined : Number(input.value);
-            if(num!==undefined && (isNaN(num)||num<0||num>100)){ alert('Enter 0–100 or clear.'); input.select(); return; }
-            if(num===undefined){ delete state.grades[key]; } else { setGrade(c.id,s.id,w.id,num); }
-            save(); renderGrid();
-          });
-          td.appendChild(input); row.appendChild(td);
-        });
-        const avg = avgOf(vals); const letter = pctToLetter(avg);
-        const avgTd=document.createElement('td'); avgTd.textContent=isNaN(avg)?'—':avg.toFixed(2)+'%';
-        const letTd=document.createElement('td'); letTd.innerHTML=`<span class="pill ${letter||''}">${letter}</span>`;
-        const actTd=document.createElement('td'); actTd.innerHTML=`<button class="small" data-act="edit">✏️ Edit</button> <button class="small" data-act="print">🖨️ PDF</button>`;
-        actTd.querySelector('[data-act="edit"]').addEventListener('click',()=> openStudentModal(s.id));
-        actTd.querySelector('[data-act="print"]').addEventListener('click',()=> printStudentReport(s.id));
-        row.appendChild(avgTd); row.appendChild(letTd); row.appendChild(actTd);
-        tbody.appendChild(row);
+        if(isDownloadSupported){
+          const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`${c.name.replace(/[^a-z0-9]+/gi,'_')}_gradebook.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+        } else {
+          alert('CSV download is blocked in this preview. It will work on GitHub Pages.');
+        }
       });
 
-      if(studs.length && wks.length){
-        const footer=document.createElement('tr'); footer.innerHTML='<td style="font-weight:700">Class Avg</td>';
-        wks.forEach(w=>{
-          const nums = studs.map(s=> state.grades[`${c.id}|${s.id}|${w.id}`]).filter(v=>typeof v==='number');
-          const avg = nums.length? (nums.reduce((a,b)=>a+b,0)/nums.length) : NaN;
-          const td=document.createElement('td'); td.className='muted'; td.textContent = isNaN(avg)?'—':avg.toFixed(1)+'%'; footer.appendChild(td);
-        });
-        const perStudent = studs.map(s=>{
-          const ns = wks.map(w=> state.grades[`${c.id}|${s.id}|${w.id}`]).filter(v=>typeof v==='number');
-          return ns.length? ns.reduce((a,b)=>a+b,0)/ns.length : NaN;
-        }).filter(v=>!isNaN(v));
-        const overall = perStudent.length? (perStudent.reduce((a,b)=>a+b,0)/perStudent.length): NaN;
-        const tdAvg=document.createElement('td'); tdAvg.className='muted'; tdAvg.textContent=isNaN(overall)?'—':overall.toFixed(2)+'%';
-        const tdLet=document.createElement('td'); tdLet.innerHTML=`<span class="pill ${pctToLetter(overall)}">${pctToLetter(overall)}</span>`;
-        const tdActions=document.createElement('td'); tdActions.textContent='';
-        footer.appendChild(tdAvg); footer.appendChild(tdLet); footer.appendChild(tdActions);
-        tbody.appendChild(footer);
-      }
+      on('btn-save-json','click',()=>{ 
+        if(isDownloadSupported){
+          const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='opengrade_data.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+        } else {
+          alert('Download is blocked in this preview. Use GitHub Pages to save JSON.');
+        }
+      });
+
+      on('import-json','change', (e)=>{ const file=e.target.files?.[0]; if(!file) return; const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(reader.result); if(!data||!data.classes) throw new Error('Invalid format'); state=data; state.classes=state.classes.map(c=>({...c, logoUrl:c.logoUrl||''})); state.students=state.students.map(s=>({...s, notes:s.notes||''})); save(); renderAll(); alert('Import successful.'); }catch(err){ alert('Could not import: '+err.message); } }; try{ reader.readAsText(file); }catch(_){ alert('File access blocked in this preview. Try on GitHub Pages.'); } e.target.value=''; });
+
+      on('btn-reset','click',()=>{ if(confirm('Clear all local data and reset demo?')){ try{ storage.remove(KEY); }catch(_){} state=load(); renderAll(); }});
+
+      on('btn-apply-logo','click',()=>{ const c=getSelectedClass(); c.logoUrl = el('logoUrl').value.trim(); save(); renderSelectedMeta(); });
+
+      on('modalClose','click', closeModal);
+      on('modalSave','click', ()=>{ if(!modalStudentId) return; const s=state.students.find(x=>x.id===modalStudentId); if(!s) return; s.name=el('modalStudentName').value.trim()||s.name; s.notes=el('modalStudentNotes').value; save(); closeModal(); renderAll(); });
+      on('modalDelete','click', ()=>{ if(!modalStudentId) return; if(confirm('Delete this student?')){ deleteStudent(modalStudentId); closeModal(); }});
+
+      // initial render
+      try {
+        if(!state.selectedClassId) state.selectedClassId = (state.classes[0] && state.classes[0].id) || null;
+        renderAll();
+      } catch(e){ console.error('Init failed', e); alert('OpenGrade failed to initialize: ' + e.message); }
+
+      // expose for per-student print buttons
+      window.printStudentReport = (id)=>{ try{ printStudentReport(id); }catch(e){ alert('Printing is restricted in this preview. Try on GitHub Pages.'); } };
     }
 
-    function renderAll(){ renderClassList(); renderSelectedMeta(); renderStudentList(); renderGrid(); }
-
-    // --- Print helpers -----------------------------------------------------------
-    function setupReportHeader(title, subtitle){
-      const c = getSelectedClass();
-      el('reportTitle').textContent = title;
-      el('reportSubtitle').textContent = subtitle;
-      el('reportLogo').src = c.logoUrl || '';
-      el('reportHeader').style.display='flex';
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', afterReady);
+    } else {
+      afterReady();
     }
-    function teardownReportHeader(){ el('reportHeader').style.display='none'; }
-
-    function printClassReport(){
-      const c=getSelectedClass();
-      const studs=studentsByClass(c.id); const wks=weeksByClass(c.id);
-      setupReportHeader(`${c.name} — Grade Report`, `${studs.length} students • ${wks.length} weeks`);
-      window.print();
-      setTimeout(teardownReportHeader, 400);
-    }
-
-    function printStudentReport(studentId){
-      const c=getSelectedClass(); const s=state.students.find(x=>x.id===studentId);
-      const wks=weeksByClass(c.id);
-      // Build a temporary table for this student only
-      const original = el('gradeGrid').parentElement; // card
-      const tempCard = document.createElement('div'); tempCard.className='card';
-      const tbl = document.createElement('table'); tbl.className='grid';
-      tbl.innerHTML = `<thead><tr><th>Student</th>${wks.map(w=>`<th>${w.label}</th>`).join('')}<th>Average</th><th>Letter</th></tr></thead><tbody></tbody>`;
-      const tr=document.createElement('tr');
-      tr.innerHTML = `<td style="min-width:220px; font-weight:700">${s.name}</td>`;
-      const vals=[]; wks.forEach(w=>{ const v=getGrade(c.id,s.id,w.id); vals.push(typeof v==='number'?v:NaN); const td=document.createElement('td'); td.textContent=(typeof v==='number'&&!isNaN(v))? v : '—'; tr.appendChild(td); });
-      const avg = (()=>{ const nums=vals.filter(v=>!isNaN(v)); return nums.length? nums.reduce((a,b)=>a+b,0)/nums.length : NaN; })();
-      const tdAvg=document.createElement('td'); tdAvg.textContent=isNaN(avg)?'—':avg.toFixed(2)+'%';
-      const tdLet=document.createElement('td'); tdLet.innerHTML=`<span class="pill ${pctToLetter(avg)}">${pctToLetter(avg)}</span>`;
-      tr.appendChild(tdAvg); tr.appendChild(tdLet);
-      const tbody = document.createElement('tbody'); tbody.appendChild(tr); tbl.appendChild(tbody); tempCard.appendChild(tbl);
-
-      // Add a notes block for student
-      const notes = document.createElement('div'); notes.className='small'; notes.style.marginTop='8px';
-      notes.innerHTML = `<strong>Notes:</strong> ${s.notes? s.notes : '<span class="muted">(none)</span>'}`;
-      tempCard.appendChild(notes);
-
-      // Swap in temp card, print, then restore
-      original.style.display='none'; original.parentElement.insertBefore(tempCard, original);
-      setupReportHeader(`${c.name} — ${s.name}`, `${wks.length} weeks • Printed ${new Date().toLocaleDateString()}`);
-      window.print();
-      setTimeout(()=>{ teardownReportHeader(); tempCard.remove(); original.style.display='block'; }, 400);
-    }
-
-    // --- Modal logic -------------------------------------------------------------
-    let modalStudentId = null;
-    function openStudentModal(studentId){
-      modalStudentId = studentId;
-      const s = state.students.find(x=>x.id===studentId);
-      el('modalStudentName').value = s?.name || '';
-      el('modalStudentNotes').value = s?.notes || '';
-      el('studentModal').style.display='flex';
-    }
-    function closeModal(){ el('studentModal').style.display='none'; }
-
-    // --- Events -----------------------------------------------------------------
-    const on = (id, evt, fn) => { const node = document.getElementById(id); if(node) node.addEventListener(evt, fn); };
-    on('btn-print-class','click', printClassReport);
-
-    on('btn-add-class','click',()=>{
-      const name = prompt('New class name (e.g., Biology — Period 3)'); if(!name||!name.trim()) return;
-      const c = {id:uid(), name:name.trim(), logoUrl:''}; state.classes.push(c); state.selectedClassId=c.id; save(); renderAll();
-    });
-
-    on('btn-add-student','click',()=>{
-      const name = el('studentName').value.trim(); if(!name){ alert('Enter the student\'s full name.'); return; }
-      const c = getSelectedClass(); state.students.push({id:uid(), classId:c.id, name, notes:''}); el('studentName').value=''; save(); renderAll();
-    });
-
-    function addWeek(){ const label = el('weekLabel').value.trim() || `Week ${weeksByClass(getSelectedClass().id).length+1}`; const date = el('weekDate').value||''; const c=getSelectedClass(); state.weeks.push({id:uid(), classId:c.id, label, date}); el('weekLabel').value=''; el('weekDate').value=''; save(); renderAll(); }
-    on('btn-add-week','click', addWeek);
-    on('btn-add-week-top','click', addWeek);
-
-    on('btn-export-csv','click',()=>{
-      const c=getSelectedClass(); const studs=studentsByClass(c.id); const wks=weeksByClass(c.id);
-      const header=['Student', ...wks.map(w=>w.label), 'Average','Letter'];
-      const rows = studs.map(s=>{ const vals=wks.map(w=>{ const v=getGrade(c.id,s.id,w.id); return (typeof v==='number'&&!isNaN(v))? v.toString():''; }); const nums=vals.map(Number).filter(n=>!isNaN(n)); const avg=nums.length? (nums.reduce((a,b)=>a+b,0)/nums.length):NaN; return [s.name, ...vals, isNaN(avg)?'':avg.toFixed(2), pctToLetter(avg)]; });
-      const csv=[header,...rows].map(r=> r.map(x=>`"${(x??'').toString().replaceAll('"','""')}"`).join(',')).join('
-');
-      const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`${c.name.replace(/[^a-z0-9]+/gi,'_')}_gradebook.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
-    });
-
-    on('btn-save-json','click',()=>{ const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='opengrade_data.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); });
-
-    on('import-json','change', (e)=>{ const file=e.target.files?.[0]; if(!file) return; const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(reader.result); if(!data||!data.classes) throw new Error('Invalid format'); state=data; // migrations
-      state.classes = state.classes.map(c=>({...c, logoUrl:c.logoUrl||''})); state.students = state.students.map(s=>({...s, notes:s.notes||''})); save(); renderAll(); alert('Import successful.'); }catch(err){ alert('Could not import: '+err.message); } }; reader.readAsText(file); e.target.value=''; });
-
-    on('btn-reset','click',()=>{ if(confirm('Clear all local data and reset demo?')){ storage.remove(KEY); state=load(); renderAll(); }});
-
-    on('btn-apply-logo','click',()=>{ const c=getSelectedClass(); c.logoUrl = el('logoUrl').value.trim(); save(); renderSelectedMeta(); });
-
-    // modal events
-    on('modalClose','click', closeModal);
-    on('modalSave','click', ()=>{ if(!modalStudentId) return; const s=state.students.find(x=>x.id===modalStudentId); if(!s) return; s.name=el('modalStudentName').value.trim()||s.name; s.notes=el('modalStudentNotes').value; save(); closeModal(); renderAll(); });
-    on('modalDelete','click', ()=>{ if(!modalStudentId) return; if(confirm('Delete this student?')){ deleteStudent(modalStudentId); closeModal(); }});
-
-    // Init
-    if(!state.selectedClassId) state.selectedClassId = state.classes[0]?.id; renderAll();
-    // Expose print function for row buttons
-    window.printStudentReport = printStudentReport;
   </script>
 </body>
 </html>
