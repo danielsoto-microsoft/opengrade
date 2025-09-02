@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OpenGrade — Minimal Gradebook (Week Notes in Header + EC per Cell)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>OpenGrade — Gradebook (Student Info Modal)</title>
   <style>
     :root{
       --bg:#0f172a; --panel:#111827; --muted:#94a3b8; --text:#e5e7eb;
@@ -12,22 +12,11 @@
     }
     *{box-sizing:border-box}
     html,body{height:100%}
-    body{
-      margin:0; background:linear-gradient(180deg,#0b1020 0%, #0a0f1a 100%);
-      color:var(--text); font-family:system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Arial;
-    }
-    header{
-      position:sticky; top:0; z-index:3; background:rgba(12,18,32,.9);
-      backdrop-filter:saturate(120%) blur(8px); border-bottom:1px solid var(--border);
-      display:flex; align-items:center; gap:16px; padding:12px 16px;
-    }
+    body{margin:0; background:linear-gradient(180deg,#0b1020 0%, #0a0f1a 100%); color:var(--text); font-family:system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Arial;}
+    header{position:sticky; top:0; z-index:3; background:rgba(12,18,32,.9); backdrop-filter:saturate(120%) blur(8px); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:16px; padding:12px 16px;}
     header h1{font-size:18px; margin:0; letter-spacing:.3px}
     header .actions{margin-left:auto; display:flex; flex-wrap:wrap; gap:8px}
-    button,.btn{
-      background:linear-gradient(180deg,#1d2a44,#111a2c); color:#e8f0ff;
-      border:1px solid #1f2b45; border-radius:10px; padding:8px 12px; font-weight:600; cursor:pointer;
-      transition:transform .06s, box-shadow .2s, background .2s;
-    }
+    button,.btn{background:linear-gradient(180deg,#1d2a44,#111a2c); color:#e8f0ff; border:1px solid #1f2b45; border-radius:10px; padding:8px 12px; font-weight:600; cursor:pointer; transition:transform .06s, box-shadow .2s, background .2s;}
     button:hover{transform:translateY(-1px); box-shadow:0 4px 16px rgba(0,0,0,.35)}
     button.primary{background:linear-gradient(180deg,#1a3a2a,#10291d); border-color:#1e3a2a}
     button.accent{background:linear-gradient(180deg,#12335d,#0f2748); border-color:#17365e}
@@ -36,39 +25,59 @@
     aside{border-right:1px solid var(--border); padding:14px; overflow:auto; background:linear-gradient(180deg,#0a1222,#0a111b)}
     .section-title{font-size:12px; letter-spacing:.5px; text-transform:uppercase; color:var(--muted); margin:8px 0}
     .class-list{display:flex; flex-direction:column; gap:8px}
-    .class-item{
-      display:flex; align-items:center; justify-content:space-between; gap:8px;
-      padding:10px 12px; border:1px solid var(--border); border-radius:12px; cursor:pointer;
-      background:linear-gradient(180deg,#0d1626,#0b1220);
-    }
+    .class-item{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 12px; border:1px solid var(--border); border-radius:12px; cursor:pointer; background:linear-gradient(180deg,#0d1626,#0b1220);}
     .class-item.active{outline:1px solid #3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.15)}
     .class-item .name{font-weight:600}
     main{padding:16px; overflow:auto}
-    .toolbar{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px}
+    .toolbar{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px}
     .toolbar .spacer{flex:1}
     .card{background:linear-gradient(180deg,#0c1426,#0a111e); border:1px solid var(--border); border-radius:14px; padding:12px}
-    .grid{width:100%; border-collapse:separate; border-spacing:0; min-width:780px}
+    .grid{width:100%; border-collapse:separate; border-spacing:0; min-width:820px}
     .grid th,.grid td{border-bottom:1px solid #1b2538; padding:10px; text-align:left; vertical-align:top}
     .grid thead th{position:sticky; top:0; background:#0b1220; z-index:2}
     .grid tbody tr:hover{background:#0d1526}
     .grid th:first-child,.grid td:first-child{position:sticky; left:0; background:#0b1220; z-index:1}
     .tag{font-size:11px; padding:3px 8px; border-radius:999px; border:1px solid #1f2937; color:var(--muted)}
     input[type="number"]{width:92px; padding:6px 8px; border-radius:8px; border:1px solid #22304a; background:#0c1526; color:var(--text)}
-    input[type="text"],input[type="date"]{width:100%; padding:8px 10px; border-radius:8px; border:1px solid #22304a; background:#0c1526; color:var(--text)}
+    input[type="text"], input[type="date"], input[type="search"], input[type="email"], input[type="tel"], select, textarea{
+      padding:8px 10px; border-radius:8px; border:1px solid #22304a; background:#0c1526; color:var(--text); min-width:0
+    }
+    input#studentSearch{width:220px}
     .pill{padding:4px 8px; border-radius:999px; font-weight:700}
     .A{background:#123b22}.B{background:#1a2f55}.C{background:#4a3412}.D{background:#4a1b12}.F{background:#3a0f0f}
     .muted{color:var(--muted)} .footer{margin-top:12px; font-size:12px; color:var(--muted)}
     .row-actions{display:flex; gap:6px; align-items:center; flex-wrap:wrap}
     .sr-only{position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0}
-    .cell-wrap{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
-    .flags{display:flex; align-items:center; gap:8px}
+    .cell-wrap{display:flex; align-items:flex-start; gap:8px; flex-wrap:wrap}
+    .flags{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
     .flags label{font-size:11px; color:var(--muted); display:flex; align-items:center; gap:4px}
     .flags input[type="number"]{width:56px; padding:3px 6px}
     .wk-chip{display:flex; align-items:center; gap:6px; border:1px solid var(--border); border-radius:999px; padding:4px 8px; margin:4px 4px 0 0}
     .wk-chip button{padding:2px 6px}
     .wk-head{display:flex; align-items:center; gap:6px}
     .icon-btn{cursor:pointer; border:1px solid var(--border); border-radius:6px; padding:2px 6px; background:#0c1526; color:var(--muted)}
+    .icon-btn.has-note{outline:1px solid #3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.15)}
+
+    /* Modal (notes + student info) */
+    .modal-backdrop{position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:50;}
+    .modal{width:min(740px, 94vw); background:#0b1220; border:1px solid var(--border); border-radius:14px; padding:16px; box-shadow:0 10px 40px rgba(0,0,0,.5);}
+    .modal h3{margin:0 0 8px 0}
+    .modal textarea{width:100%; min-height:180px; resize:vertical}
+    .modal .row{display:flex; align-items:center; gap:10px; margin-top:12px; justify-content:flex-end}
+    .btn-ghost{background:#0c1526}
+    .note-btn,.info-btn{padding:4px 8px; border-radius:8px; font-size:12px}
+    .note-btn.has-note,.info-btn.has-note{outline:1px solid #3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.15)}
+
+    /* Sidebar week inputs: keep date input fitting */
+    .week-form{display:grid; grid-template-columns:1fr minmax(120px, 160px); gap:8px; margin-bottom:10px}
+    @media (max-width:420px){ .week-form{grid-template-columns:1fr} }
     @media (max-width:980px){.app{grid-template-columns:1fr} aside{order:2}}
+
+    /* Student info form grid */
+    .info-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+    .info-grid .full{grid-column:1/-1}
+    .badge{display:inline-flex; align-items:center; gap:6px; border:1px solid var(--border); border-radius:999px; padding:4px 8px; font-size:12px}
+    .switch{display:inline-flex; align-items:center; gap:6px}
   </style>
 </head>
 <body>
@@ -84,6 +93,7 @@
       <button id="btn-reset" class="warn">Reset</button>
     </div>
   </header>
+
   <div class="app">
     <aside>
       <div class="section-title">Classes</div>
@@ -94,31 +104,36 @@
 
       <div class="section-title">Roster</div>
       <div class="card">
-        <div style="display:flex; gap:8px; margin-bottom:10px">
-          <input id="studentName" type="text" placeholder="Student full name" />
-          <button id="btn-add-student" class="primary">+ Student</button>
+        <div style="display:grid; grid-template-columns:1fr 1fr auto; gap:8px; margin-bottom:10px">
+          <input id="studentFirst" type="text" placeholder="First name" />
+          <input id="studentLast" type="text" placeholder="Last name" />
+          <button id="btn-add-student" class="primary">+ Add</button>
         </div>
+        <div class="muted" style="font-size:12px; margin-bottom:6px;">ID auto-generates on add. Email/Phone/Notes via “Info”.</div>
         <div id="studentCount" class="muted"></div>
       </div>
 
       <div class="section-title">Weeks</div>
       <div class="card">
-        <div style="display:grid; grid-template-columns:1fr 130px; gap:8px; margin-bottom:10px">
-          <input id="weekLabel" type="text" placeholder="e.g., Week 1" />
-          <input id="weekDate" type="date" />
+        <div class="week-form">
+          <input id="weekLabel" type="text" placeholder="e.g., Week 1"/>
+          <input id="weekDate" type="date"/>
         </div>
         <button id="btn-add-week">+ Week</button>
         <div id="weekCount" class="muted" style="margin-top:8px"></div>
-        <!-- Week list (Delete only; notes moved to header) -->
         <div id="weekList" style="margin-top:6px;"></div>
       </div>
     </aside>
+
     <main>
       <div class="toolbar">
-        <div class="tag" id="gradeScale">Scale: A ≥90, B ≥80, C ≥70, D ≥60 • EC adds directly to that week’s score (capped at 100)</div>
+        <div class="tag" id="gradeScale">Scale: A ≥90, B ≥80, C ≥70, D ≥60 • EC adds to that week’s score (capped at 100)</div>
         <div class="spacer"></div>
+        <input id="studentSearch" type="search" placeholder="Search students…" aria-label="Search students by name or ID"/>
+        <button id="studentSearchClear" title="Clear search">✖</button>
         <button id="btn-add-week-top">+ Week</button>
       </div>
+
       <div class="card">
         <table class="grid" id="gradeGrid" aria-label="Gradebook table"></table>
       </div>
@@ -126,56 +141,144 @@
     </main>
   </div>
 
+  <!-- Notes Modal (unified) -->
+  <div id="noteModalBackdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="noteModalTitle">
+    <div class="modal">
+      <h3 id="noteModalTitle">Notes</h3>
+      <div id="noteModalContext" class="muted" style="margin-bottom:8px"></div>
+      <textarea id="noteModalTextarea" placeholder="Type notes..."></textarea>
+      <div class="row">
+        <button id="noteModalCancel" class="btn btn-ghost">Cancel (Esc)</button>
+        <button id="noteModalSave" class="btn accent">Save (Ctrl/Cmd+Enter)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Student Info Modal -->
+  <div id="infoModalBackdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="infoModalTitle">
+    <div class="modal">
+      <h3 id="infoModalTitle">Student Information</h3>
+      <div id="infoModalContext" class="muted" style="margin-bottom:8px"></div>
+      <div class="info-grid">
+        <div>
+          <label class="muted" for="infoId">Student ID</label>
+          <input id="infoId" type="text" disabled />
+        </div>
+        <div>
+          <label class="muted" for="infoActive">Status</label>
+          <div class="switch">
+            <input id="infoActive" type="checkbox" />
+            <span id="infoActiveLabel">Active</span>
+          </div>
+        </div>
+        <div>
+          <label class="muted" for="infoFirst">First Name *</label>
+          <input id="infoFirst" type="text" required />
+        </div>
+        <div>
+          <label class="muted" for="infoLast">Last Name *</label>
+          <input id="infoLast" type="text" required />
+        </div>
+        <div>
+          <label class="muted" for="infoEmail">Email</label>
+          <input id="infoEmail" type="email" placeholder="name@example.com"/>
+        </div>
+        <div>
+          <label class="muted" for="infoPhone">Phone</label>
+          <input id="infoPhone" type="tel" placeholder="(555) 555-5555"/>
+        </div>
+        <div class="full">
+          <label class="muted" for="infoNotes">Notes</label>
+          <textarea id="infoNotes" placeholder="Long-form student notes (IEP, parent contact, accommodations, etc.)"></textarea>
+        </div>
+      </div>
+      <div class="row">
+        <span class="muted" style="margin-right:auto;font-size:12px">* Required</span>
+        <button id="infoModalCancel" class="btn btn-ghost">Cancel</button>
+        <button id="infoModalSave" class="btn accent">Save</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     if (!String.prototype.replaceAll) { String.prototype.replaceAll = function(a,b){ return this.split(a).join(b); }; }
 
     // --- Data layer --------------------------------------------------------------
-    const KEY = 'opengrade_v4_header_notes_cell_ec';
+    const KEY = 'opengrade_v9_student_info';
     const storage = (()=>{ 
       try{ const t='__og_test__'; localStorage.setItem(t,'1'); localStorage.removeItem(t);
         return {get:(k)=>localStorage.getItem(k), set:(k,v)=>localStorage.setItem(k,v), remove:(k)=>localStorage.removeItem(k)};
       } catch(e){ let mem={}; return {get:(k)=>mem[k]??null, set:(k,v)=>{mem[k]=v}, remove:(k)=>{delete mem[k]}} }
     })();
     const uid = () => Math.random().toString(36).slice(2,10);
+    const genStudentCode = () => 'STU-' + Math.random().toString(36).slice(2,6).toUpperCase() + '-' + Math.random().toString(36).slice(2,4).toUpperCase();
 
     const Default = () => ({
       classes:[{id:uid(), name:'Algebra I — Period 2'}],
       selectedClassId:null,
-      students:[], // {id, classId, name, notes?:string}
+      // student: {id, classId, first, last, email?, phone?, active:boolean, notes?:string, code:string}
+      students:[],
       weeks:[],    // {id, classId, label, date, notes?:string}
-      // grade: {score:number|undefined, absent:boolean, ec:boolean, ecPoints:number|undefined}
+      // grade: {score:number|undefined, absent:boolean, ec:boolean, ecPoints:number|undefined, note?:string}
       grades:{}
     });
+
+    function splitName(n){
+      const s=(n||'').trim();
+      if(!s) return {first:'', last:''};
+      const parts=s.split(/\s+/);
+      if(parts.length===1) return {first:parts[0], last:''};
+      return {first:parts.slice(0,-1).join(' '), last:parts.slice(-1)[0]};
+    }
 
     function load(){
       let raw = storage.get(KEY);
       if(!raw){
         const d = Default();
         d.selectedClassId = d.classes[0].id;
-        const s1 = {id:uid(), classId:d.selectedClassId, name:'Ava Thompson', notes:'IEP: extended time'};
-        const s2 = {id:uid(), classId:d.selectedClassId, name:'Liam Hernandez', notes:''};
-        const w1 = {id:uid(), classId:d.selectedClassId, label:'Week 1', date:new Date().toISOString().slice(0,10), notes:''};
+        const {first:f1,last:l1}=splitName('Ava Thompson');
+        const {first:f2,last:l2}=splitName('Liam Hernandez');
+        const s1 = {id:uid(), classId:d.selectedClassId, first:f1, last:l1, email:'', phone:'', active:true, notes:'IEP: extended time', code:genStudentCode()};
+        const s2 = {id:uid(), classId:d.selectedClassId, first:f2, last:l2, email:'', phone:'', active:true, notes:'', code:genStudentCode()};
+        const w1 = {id:uid(), classId:d.selectedClassId, label:'Week 1', date:new Date().toISOString().slice(0,10), notes:'Intro unit'};
         const w2 = {id:uid(), classId:d.selectedClassId, label:'Week 2', date:new Date(Date.now()+6*86400000).toISOString().slice(0,10), notes:''};
         d.students.push(s1,s2); d.weeks.push(w1,w2);
-        d.grades[`${d.selectedClassId}|${s1.id}|${w1.id}`]={score:95, absent:false, ec:false, ecPoints:0};
-        d.grades[`${d.selectedClassId}|${s2.id}|${w1.id}`]={score:88, absent:false, ec:false, ecPoints:0};
+        d.grades[`${d.selectedClassId}|${s1.id}|${w1.id}`]={score:95, absent:false, ec:false, ecPoints:0, note:'Strong quiz.'};
+        d.grades[`${d.selectedClassId}|${s2.id}|${w1.id}`]={score:88, absent:false, ec:false, ecPoints:0, note:''};
         storage.set(KEY, JSON.stringify(d));
         return d;
       }
       try{
         const data = JSON.parse(raw);
-        data.students = (data.students||[]).map(s=>({...s, notes: s.notes||''}));
+        // migrate students from older schemas
+        data.students = (data.students||[]).map(s=>{
+          // Older shape: {id, classId, name, notes?}
+          if(!('first' in s) && s.name){
+            const {first,last}=splitName(s.name);
+            return {id:s.id, classId:s.classId, first, last, email:'', phone:'', active:true, notes:s.notes||'', code:genStudentCode()};
+          }
+          return {
+            id:s.id, classId:s.classId,
+            first: s.first || '', last: s.last || '',
+            email: s.email || '', phone: s.phone || '',
+            active: (typeof s.active==='boolean') ? s.active : true,
+            notes: s.notes || '',
+            code: s.code || genStudentCode()
+          };
+        });
         data.weeks = (data.weeks||[]).map(w=>({...w, notes: w.notes||''}));
         // migrate grades
-        const up={}; for(const k of Object.keys(data.grades||{})){
+        const up={}; 
+        for(const k of Object.keys(data.grades||{})){
           const v=data.grades[k];
-          if(typeof v==='number'){ up[k]={score:v, absent:false, ec:false, ecPoints:0}; }
+          if(typeof v==='number'){ up[k]={score:v, absent:false, ec:false, ecPoints:0, note:''}; }
           else{
             up[k]={ 
               score:(v&&typeof v.score==='number')?v.score:undefined,
               absent:!!(v&&v.absent),
               ec: !!(v&&v.ec),
-              ecPoints: (v&&typeof v.ecPoints==='number')? v.ecPoints : 0
+              ecPoints: (v&&typeof v.ecPoints==='number')? v.ecPoints : 0,
+              note: (v&&typeof v.note==='string')? v.note : ''
             };
           }
         }
@@ -192,9 +295,10 @@
     const studentsByClass = cid => state.students.filter(s=>s.classId===cid);
     const weeksByClass = cid => state.weeks.filter(w=>w.classId===cid);
     const gkey = (cid,sid,wid) => `${cid}|${sid}|${wid}`;
-    const getG = (cid,sid,wid) => state.grades[gkey(cid,sid,wid)] || {score:undefined, absent:false, ec:false, ecPoints:0};
+    const getG = (cid,sid,wid) => state.grades[gkey(cid,sid,wid)] || {score:undefined, absent:false, ec:false, ecPoints:0, note:''};
     const setG = (cid,sid,wid,obj) => { state.grades[gkey(cid,sid,wid)] = obj; save(); };
     const pctToLetter = n => { if(isNaN(n)) return '-'; if(n>=90) return 'A'; if(n>=80) return 'B'; if(n>=70) return 'C'; if(n>=60) return 'D'; return 'F'; };
+    const fullName = s => [s.first,s.last].filter(Boolean).join(' ').trim();
 
     function deleteStudent(sid){
       const c=getSelectedClass();
@@ -209,7 +313,7 @@
       save(); renderAll();
     }
 
-    // Average: EC adds directly to that week's score; absent is informational only
+    // Average: EC adds directly; absent informational only
     function calcStudentAverage(cId, sId){
       const wks = weeksByClass(cId);
       const scores = [];
@@ -219,12 +323,155 @@
         if (isNaN(sc)) return;
         if (g.ec) {
           const bonus = (typeof g.ecPoints==='number' && !isNaN(g.ecPoints)) ? Number(g.ecPoints) : 0;
-          sc = Math.min(100, sc + bonus); // cap at 100 — tweak if you want different cap
+          sc = Math.min(100, sc + bonus);
         }
         scores.push(sc);
       });
       return scores.length ? (scores.reduce((a,b)=>a+b,0)/scores.length) : NaN;
     }
+
+    // --- Student search ----------------------------------------------------------
+    let studentFilter = '';
+    function getFilteredStudents(cId){
+      const all = studentsByClass(cId);
+      if (!studentFilter.trim()) return all;
+      const q = studentFilter.trim().toLowerCase();
+      return all.filter(s => fullName(s).toLowerCase().includes(q) || (s.code||'').toLowerCase().includes(q));
+    }
+
+    // --- Unified Notes Modal (unchanged behavior) --------------------------------
+    const noteModal = {
+      backdrop: el('noteModalBackdrop'),
+      textarea: el('noteModalTextarea'),
+      saveBtn: el('noteModalSave'),
+      cancelBtn: el('noteModalCancel'),
+      context: el('noteModalContext'),
+      title: el('noteModalTitle'),
+      openFor: null // {type:'cell'|'student'|'week', cId?, sId?, wId?}
+    };
+    function openNoteModalForCell(cId,sId,wId){
+      const s = state.students.find(x=>x.id===sId);
+      const w = state.weeks.find(x=>x.id===wId);
+      const g = getG(cId,sId,wId);
+      noteModal.openFor = {type:'cell', cId, sId, wId};
+      noteModal.title.textContent = 'Weekly Note';
+      noteModal.context.textContent = `${fullName(s) || 'Student'} • ${w?.label||'Week'}${w?.date?` (${w.date})`:''}`;
+      noteModal.textarea.value = g.note || '';
+      noteModal.backdrop.style.display = 'flex';
+      setTimeout(()=> noteModal.textarea.focus(), 0);
+    }
+    function openNoteModalForStudent(sId){
+      const s = state.students.find(x=>x.id===sId);
+      noteModal.openFor = {type:'student', sId};
+      noteModal.title.textContent = 'Student Notes';
+      noteModal.context.textContent = fullName(s) || 'Student';
+      noteModal.textarea.value = s?.notes || '';
+      noteModal.backdrop.style.display = 'flex';
+      setTimeout(()=> noteModal.textarea.focus(), 0);
+    }
+    function openNoteModalForWeek(wId){
+      const w = state.weeks.find(x=>x.id===wId);
+      noteModal.openFor = {type:'week', wId};
+      noteModal.title.textContent = 'Week Notes';
+      noteModal.context.textContent = `${w?.label||'Week'}${w?.date?` (${w.date})`:''}`;
+      noteModal.textarea.value = w?.notes || '';
+      noteModal.backdrop.style.display = 'flex';
+      setTimeout(()=> noteModal.textarea.focus(), 0);
+    }
+    function closeNoteModal(){
+      noteModal.backdrop.style.display = 'none';
+      noteModal.openFor = null;
+    }
+    function saveNoteModal(){
+      if(!noteModal.openFor) return;
+      const t = noteModal.openFor.type;
+      const val = noteModal.textarea.value || '';
+      if(t==='cell'){
+        const {cId,sId,wId} = noteModal.openFor;
+        const g = getG(cId,sId,wId);
+        setG(cId,sId,wId,{...g, note: val});
+        renderGrid();
+      } else if(t==='student'){
+        const {sId} = noteModal.openFor;
+        const s = state.students.find(x=>x.id===sId);
+        if(s){ s.notes = val; save(); renderAll(); }
+      } else if(t==='week'){
+        const {wId} = noteModal.openFor;
+        const w = state.weeks.find(x=>x.id===wId);
+        if(w){ w.notes = val; save(); renderGrid(); renderSelectedMeta(); }
+      }
+      closeNoteModal();
+    }
+    noteModal.saveBtn.addEventListener('click', saveNoteModal);
+    noteModal.cancelBtn.addEventListener('click', closeNoteModal);
+    noteModal.backdrop.addEventListener('click', (e)=>{ if(e.target===noteModal.backdrop) closeNoteModal(); });
+    document.addEventListener('keydown', (e)=>{
+      if(noteModal.backdrop.style.display==='flex'){
+        if(e.key==='Escape') closeNoteModal();
+        if((e.ctrlKey||e.metaKey) && e.key==='Enter') saveNoteModal();
+      }
+    });
+
+    // --- Student Info Modal ------------------------------------------------------
+    const infoModal = {
+      backdrop: el('infoModalBackdrop'),
+      title: el('infoModalTitle'),
+      context: el('infoModalContext'),
+      idEl: el('infoId'),
+      firstEl: el('infoFirst'),
+      lastEl: el('infoLast'),
+      emailEl: el('infoEmail'),
+      phoneEl: el('infoPhone'),
+      activeEl: el('infoActive'),
+      activeLabel: el('infoActiveLabel'),
+      notesEl: el('infoNotes'),
+      saveBtn: el('infoModalSave'),
+      cancelBtn: el('infoModalCancel'),
+      openFor: null // sId
+    };
+    function openInfoModal(sId){
+      const s = state.students.find(x=>x.id===sId);
+      if(!s) return;
+      infoModal.openFor = sId;
+      infoModal.title.textContent = 'Student Information';
+      infoModal.context.textContent = fullName(s) || s.code || 'Student';
+      infoModal.idEl.value = s.code || '';
+      infoModal.firstEl.value = s.first || '';
+      infoModal.lastEl.value = s.last || '';
+      infoModal.emailEl.value = s.email || '';
+      infoModal.phoneEl.value = s.phone || '';
+      infoModal.activeEl.checked = !!s.active;
+      infoModal.activeLabel.textContent = s.active ? 'Active' : 'Inactive';
+      infoModal.notesEl.value = s.notes || '';
+      infoModal.backdrop.style.display = 'flex';
+      setTimeout(()=> infoModal.firstEl.focus(), 0);
+    }
+    function closeInfoModal(){
+      infoModal.backdrop.style.display = 'none';
+      infoModal.openFor = null;
+    }
+    function saveInfoModal(){
+      const sId = infoModal.openFor;
+      if(!sId) return;
+      const s = state.students.find(x=>x.id===sId);
+      if(!s) return;
+      const first = infoModal.firstEl.value.trim();
+      const last = infoModal.lastEl.value.trim();
+      if(!first || !last){ alert('First and Last name are required.'); return; }
+      s.first = first;
+      s.last = last;
+      s.email = infoModal.emailEl.value.trim();
+      s.phone = infoModal.phoneEl.value.trim();
+      s.active = !!infoModal.activeEl.checked;
+      s.notes = infoModal.notesEl.value || '';
+      // ensure code exists
+      s.code = s.code || genStudentCode();
+      save(); closeInfoModal(); renderAll();
+    }
+    infoModal.activeEl.addEventListener('change', ()=> infoModal.activeLabel.textContent = infoModal.activeEl.checked ? 'Active' : 'Inactive');
+    infoModal.saveBtn.addEventListener('click', saveInfoModal);
+    infoModal.cancelBtn.addEventListener('click', closeInfoModal);
+    infoModal.backdrop.addEventListener('click', (e)=>{ if(e.target===infoModal.backdrop) closeInfoModal(); });
 
     // --- UI: classes & sidebar ---------------------------------------------------
     function renderClassList(){
@@ -254,7 +501,7 @@
       el('studentCount').textContent = `${studs.length} students`;
       el('weekCount').textContent = `${wks.length} weeks`;
 
-      // Show weeks (Delete only — notes are edited from header)
+      // Weeks list (delete only)
       const wkList = el('weekList'); wkList.innerHTML='';
       wks.forEach(w=>{
         const chip = document.createElement('div'); chip.className='wk-chip';
@@ -269,65 +516,87 @@
     // --- UI: grid ---------------------------------------------------------------
     function renderGrid(){
       const c = getSelectedClass();
-      const studs = studentsByClass(c.id);
+      const studsAll = studentsByClass(c.id);
+      const studs = getFilteredStudents(c.id);
       const wks = weeksByClass(c.id);
       const table = el('gradeGrid');
 
-      // Header with week notes indicator + editor
-      const headWeeks = wks.map((w,i)=>{
-        const hasNotes = !!(w.notes && w.notes.trim());
-        const safeNotes = (w.notes||'').replaceAll('"','&quot;');
+      // Header with WEEK NOTES modal button
+      const headWeeks = wks.map(w=>{
+        const has = (w.notes||'').trim().length>0;
         return `<th data-wid="${w.id}">
           <div class="wk-head">
             <span>${w.label}</span>
-            ${hasNotes ? `<span class="icon-btn" title="${safeNotes}" data-note-btn="${w.id}">📝</span>` : `<span class="icon-btn" title="Add notes" data-note-btn="${w.id}">📝</span>`}
+            <span class="icon-btn ${has?'has-note':''}" title="${(w.notes||'').replaceAll('"','&quot;') || 'Add notes'}" data-week-note="${w.id}">📝</span>
           </div>
           <div class="muted" style="font-size:11px">${w.date||''}</div>
         </th>`;
       }).join('');
 
+      const filterBadge = studentFilter.trim() ? 
+        `<div class="muted" style="font-size:11px; padding:4px 0 8px 0;">Showing ${studs.length} of ${studsAll.length} students</div>` : '';
+
       table.innerHTML = `<thead>
-        <tr><th>Student</th>${headWeeks}<th>Average</th><th>Letter</th><th>Actions</th></tr>
+        <tr><th>Student ${filterBadge}</th>${headWeeks}<th>Average</th><th>Letter</th><th>Actions</th></tr>
       </thead><tbody></tbody>`;
 
-      // Bind header note buttons
+      // Bind WEEK note buttons
       wks.forEach(w=>{
-        const btn = table.querySelector(`[data-note-btn="${w.id}"]`);
-        if (btn) {
-          btn.addEventListener('click', ()=>{
-            const n = prompt(`Notes for ${w.label}`, w.notes||'');
-            if (n!==null){ w.notes = n; save(); renderGrid(); renderSelectedMeta(); }
-          });
-        }
+        const btn = table.querySelector(`[data-week-note="${w.id}"]`);
+        if (btn) btn.addEventListener('click', ()=> openNoteModalForWeek(w.id));
       });
 
-      // Body rows
       const tbody = table.querySelector('tbody');
+
       studs.forEach(s=>{
         const row=document.createElement('tr');
-        row.innerHTML = `<td style="min-width:190px; font-weight:600">${s.name}${s.notes?` <span class="muted" title="${s.notes.replaceAll('"','&quot;')}">📝</span>`:''}</td>`;
 
+        // STUDENT cell: name + Info (modal) + Student Notes (modal)
+        const nameTd = document.createElement('td');
+        nameTd.style.minWidth = '220px';
+        nameTd.style.fontWeight = '600';
+
+        const nameSpan = document.createElement('span'); nameSpan.textContent = fullName(s) || '(Unnamed)';
+        const idBadge = document.createElement('span'); idBadge.className='badge'; idBadge.style.marginLeft='8px'; idBadge.textContent = s.code || '';
+        const infoBtn = document.createElement('button');
+        infoBtn.className = 'info-btn' + ((s.notes||'').trim() ? ' has-note':'');
+        infoBtn.style.marginLeft = '8px';
+        infoBtn.textContent = 'ℹ️ Info';
+        infoBtn.title = 'Open student information';
+        infoBtn.addEventListener('click', ()=> openInfoModal(s.id));
+
+        const sBtn = document.createElement('button');
+        sBtn.className = 'note-btn' + ((s.notes||'').trim() ? ' has-note':'');
+        sBtn.textContent = '📝 Notes';
+        sBtn.title = (s.notes||'').trim() ? s.notes : 'Add student notes';
+        sBtn.style.marginLeft = '6px';
+        sBtn.addEventListener('click', ()=> openNoteModalForStudent(s.id));
+
+        nameTd.appendChild(nameSpan); 
+        if (s.code) nameTd.appendChild(idBadge);
+        nameTd.appendChild(infoBtn);
+        nameTd.appendChild(sBtn);
+        row.appendChild(nameTd);
+
+        // Cells
         wks.forEach(w=>{
           const td = document.createElement('td');
           const g = getG(c.id,s.id,w.id);
-
           const wrap = document.createElement('div'); wrap.className='cell-wrap';
 
-          // Score
+          // Score input
           const input = document.createElement('input');
           input.type='number'; input.step='0.1'; input.min='0'; input.max='200';
           input.value = (typeof g.score==='number' && !isNaN(g.score))? g.score : '';
           input.placeholder='—';
 
-          // Flags: Absent & EC (with points box appearing when EC is checked)
+          // Flags: Absent & EC (+ points)
           const flags = document.createElement('div'); flags.className='flags';
 
-          // Absent
           const labA = document.createElement('label');
           const cbA = document.createElement('input'); cbA.type='checkbox'; cbA.checked = !!g.absent; cbA.title='Absent (informational only)';
           labA.appendChild(cbA); labA.appendChild(document.createTextNode('A'));
 
-          // Extra Credit
           const labEC = document.createElement('label');
           const cbEC = document.createElement('input'); cbEC.type='checkbox'; cbEC.checked = !!g.ec; cbEC.title='Extra credit — adds to this week’s score';
           const ecNum = document.createElement('input'); ecNum.type='number'; ecNum.step='0.1'; ecNum.min='0'; ecNum.max='50';
@@ -336,13 +605,19 @@
           ecNum.style.display = cbEC.checked ? 'inline-block' : 'none';
           labEC.appendChild(cbEC); labEC.appendChild(document.createTextNode('EC'));
 
-          // Handlers
+          // CELL note button (modal)
+          const noteBtn = document.createElement('button');
+          noteBtn.className='note-btn' + ((g.note||'').trim() ? ' has-note':'');
+          noteBtn.title = (g.note||'').trim() ? g.note : 'Add weekly note';
+          noteBtn.textContent = '📝 Note';
+          noteBtn.addEventListener('click', ()=> openNoteModalForCell(c.id,s.id,w.id));
+
           function commit(){
             const score = input.value===''? undefined : Number(input.value);
             const ecPoints = (cbEC.checked && ecNum.value!=='') ? Number(ecNum.value) : 0;
             if(score!==undefined && (isNaN(score) || score<0 || score>200)){ alert('Enter 0–200, or clear.'); input.select(); return; }
             if(cbEC.checked && (isNaN(ecPoints) || ecPoints<0 || ecPoints>50)){ alert('Enter EC between 0–50.'); ecNum.select(); return; }
-            setG(c.id,s.id,w.id,{score, absent: cbA.checked, ec: cbEC.checked, ecPoints});
+            setG(c.id,s.id,w.id,{score, absent: cbA.checked, ec: cbEC.checked, ecPoints, note: g.note||''});
             renderGrid();
           }
           input.addEventListener('change', commit);
@@ -353,6 +628,7 @@
           flags.appendChild(labA);
           flags.appendChild(labEC);
           flags.appendChild(ecNum);
+          flags.appendChild(noteBtn);
 
           wrap.appendChild(input);
           wrap.appendChild(flags);
@@ -365,35 +641,21 @@
         const letterTd=document.createElement('td'); letterTd.innerHTML = `<span class="pill ${pctToLetter(avg)}">${pctToLetter(avg)}</span>`;
 
         const act=document.createElement('td'); act.className='row-actions';
-        const bEdit=document.createElement('button'); bEdit.textContent='✏️ Edit'; bEdit.title='Edit name & notes';
-        bEdit.addEventListener('click', ()=>{
-          const newName = prompt('Edit student name:', s.name);
-          if(newName && newName.trim()) s.name = newName.trim();
-          const newNotes = prompt('Student notes (blank to clear):', s.notes||'');
-          if(newNotes!==null) s.notes = newNotes;
-          save(); renderAll();
-        });
-        const bNotes=document.createElement('button'); bNotes.textContent='📝 Notes'; bNotes.title='Edit notes';
-        bNotes.addEventListener('click', ()=>{
-          const newNotes = prompt('Student notes (blank to clear):', s.notes||'');
-          if(newNotes!==null){ s.notes=newNotes; save(); renderAll(); }
-        });
         const bExp=document.createElement('button'); bExp.textContent='⬇️ Export'; bExp.title='Export this student CSV';
         bExp.addEventListener('click', ()=> exportStudentCSV(c.id, s.id));
         const bDel=document.createElement('button'); bDel.textContent='🗑️ Delete'; bDel.title='Remove student';
-        bDel.addEventListener('click', ()=>{ if(confirm(`Remove ${s.name} and their grades?`)) deleteStudent(s.id); });
+        bDel.addEventListener('click', ()=>{ if(confirm(`Remove ${fullName(s)} and their grades?`)) deleteStudent(s.id); });
 
-        act.appendChild(bEdit); act.appendChild(bNotes); act.appendChild(bExp); act.appendChild(bDel);
+        act.appendChild(bExp); act.appendChild(bDel);
 
         row.appendChild(avgTd); row.appendChild(letterTd); row.appendChild(act);
         tbody.appendChild(row);
       });
 
-      // Summary row (weekly avg ignores missing scores; EC already included in cell scores for final avg)
+      // Summary row (respects filter)
       if(studs.length && wks.length){
         const footer=document.createElement('tr');
         footer.innerHTML = `<td style="font-weight:700">Class Avg</td>`;
-        // per-week average
         wks.forEach(w=>{
           let sum=0, cnt=0;
           studs.forEach(s=>{
@@ -411,45 +673,45 @@
           td.textContent = isNaN(avg)? '—' : avg.toFixed(1)+'%';
           footer.appendChild(td);
         });
-        // overall using students' final
         const finals = studs.map(s=> calcStudentAverage(c.id,s.id)).filter(v=>!isNaN(v));
         const overall = finals.length? (finals.reduce((a,b)=>a+b,0)/finals.length): NaN;
         const tdAvg=document.createElement('td'); tdAvg.className='muted'; tdAvg.textContent = isNaN(overall)? '—' : overall.toFixed(2)+'%';
         const tdLet=document.createElement('td'); tdLet.innerHTML = `<span class="pill ${pctToLetter(overall)}">${pctToLetter(overall)}</span>`;
         const tdEmpty=document.createElement('td'); tdEmpty.textContent='';
-        footer.appendChild(tdAvg); footer.appendChild(tdLet); footer.appendChild(tdEmpty);
         tbody.appendChild(footer);
+        footer.appendChild(tdAvg); footer.appendChild(tdLet); footer.appendChild(tdEmpty);
       }
     }
 
     function renderAll(){ renderClassList(); renderSelectedMeta(); renderGrid(); }
 
-    // --- CSV ---------------------------------------------------------------------
+    // --- CSV (includes notes inline for cell notes) ------------------------------
     function exportStudentCSV(cId, sId){
       const c = state.classes.find(x=>x.id===cId);
       const s = state.students.find(x=>x.id===sId);
       const wks = weeksByClass(cId);
-      const header = ['Student', ...wks.map(w=>w.label), 'Average','Letter'];
+      const header = ['Student ID','Student', ...wks.map(w=>w.label), 'Average','Letter'];
       const vals = wks.map(w=>{
         const g = getG(cId,sId,w.id);
         if (typeof g.score==='number' && !isNaN(g.score)){
           const parts = [g.score];
           if (g.absent) parts.push('(A)');
           if (g.ec && g.ecPoints) parts.push(`+${g.ecPoints}`);
+          if (g.note) parts.push(`[${g.note}]`);
           return parts.join(' ');
         }
-        return g.absent ? 'ABS' : '';
+        return g.absent ? (g.note ? `ABS [${g.note}]` : 'ABS') : (g.note ? `[${g.note}]` : '');
       });
       const avg = calcStudentAverage(cId, sId);
-      const row = [s.name, ...vals, isNaN(avg)? '' : avg.toFixed(2), pctToLetter(avg)];
+      const row = [s.code || '', fullName(s), ...vals, isNaN(avg)? '' : avg.toFixed(2), pctToLetter(avg)];
       const csv = [header, row].map(r=> r.map(x=>`"${(x??'').toString().replaceAll('"','""')}"`).join(',')).join('\n');
       const blob = new Blob([csv],{type:'text/csv;charset=utf-8'});
       const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
-      a.download=`${(c.name+'_'+s.name).replace(/[^a-z0-9]+/gi,'_')}_grades.csv`; a.click();
+      a.download=`${(c.name+'_'+fullName(s)).replace(/[^a-z0-9]+/gi,'_')}_grades.csv`; a.click();
       setTimeout(()=>URL.revokeObjectURL(a.href), 1500);
     }
 
-    // --- Events (same IDs) -------------------------------------------------------
+    // --- Events ------------------------------------------------------------------
     document.getElementById('btn-add-class').addEventListener('click',()=>{
       const name = prompt('New class name (e.g., Biology — Period 3)');
       if(!name || !name.trim()) return;
@@ -457,12 +719,15 @@
       state.classes.push(c); state.selectedClassId=c.id; save(); renderAll();
     });
 
+    // Add student (first + last required), code auto
     document.getElementById('btn-add-student').addEventListener('click',()=>{
-      const name = el('studentName').value.trim();
-      if(!name){ alert('Enter the student\'s full name.'); return; }
+      const first = (el('studentFirst').value||'').trim();
+      const last = (el('studentLast').value||'').trim();
+      if(!first || !last){ alert('Enter first and last name.'); return; }
       const c = getSelectedClass();
-      state.students.push({id:uid(), classId:c.id, name, notes:''});
-      el('studentName').value=''; save(); renderAll();
+      state.students.push({id:uid(), classId:c.id, first, last, email:'', phone:'', active:true, notes:'', code:genStudentCode()});
+      el('studentFirst').value=''; el('studentLast').value='';
+      save(); renderAll();
     });
 
     function addWeek(){
@@ -478,8 +743,9 @@
 
     document.getElementById('btn-export-csv').addEventListener('click',()=>{
       const c = getSelectedClass();
-      const studs = studentsByClass(c.id); const wks = weeksByClass(c.id);
-      const header = ['Student', ...wks.map(w=>w.label), 'Average','Letter'];
+      const studs = getFilteredStudents(c.id); // export respects filter
+      const wks = weeksByClass(c.id);
+      const header = ['Student ID','Student', ...wks.map(w=>w.label), 'Average','Letter','Status'];
       const rows = studs.map(s=>{
         const cells = wks.map(w=>{
           const g = getG(c.id,s.id,w.id);
@@ -487,12 +753,13 @@
             const parts = [g.score];
             if (g.absent) parts.push('(A)');
             if (g.ec && g.ecPoints) parts.push(`+${g.ecPoints}`);
+            if (g.note) parts.push(`[${g.note}]`);
             return parts.join(' ');
           }
-          return g.absent ? 'ABS' : '';
+          return g.absent ? (g.note ? `ABS [${g.note}]` : 'ABS') : (g.note ? `[${g.note}]` : '');
         });
         const avg = calcStudentAverage(c.id, s.id);
-        return [s.name, ...cells, isNaN(avg)? '' : avg.toFixed(2), pctToLetter(avg)];
+        return [s.code || '', fullName(s), ...cells, isNaN(avg)? '' : avg.toFixed(2), pctToLetter(avg), s.active ? 'Active' : 'Inactive'];
       });
       const csv = [header, ...rows].map(r=> r.map(x=>`"${(x??'').toString().replaceAll('"','""')}"`).join(',')).join('\n');
       const blob = new Blob([csv],{type:'text/csv;charset=utf-8'});
@@ -512,9 +779,28 @@
         try{
           const data = JSON.parse(reader.result);
           if(!data || !data.classes) throw new Error('Invalid format');
-          data.students = (data.students||[]).map(s=>({...s, notes: s.notes||''}));
+          // migrate students in imports too
+          data.students = (data.students||[]).map(s=>{
+            if(!('first' in s) && s.name){
+              const {first,last}=splitName(s.name);
+              return {id:s.id, classId:s.classId, first, last, email:'', phone:'', active:true, notes:s.notes||'', code:genStudentCode()};
+            }
+            return {
+              id:s.id, classId:s.classId,
+              first: s.first || '', last: s.last || '',
+              email: s.email || '', phone: s.phone || '',
+              active: (typeof s.active==='boolean') ? s.active : true,
+              notes: s.notes || '',
+              code: s.code || genStudentCode()
+            };
+          });
           data.weeks = (data.weeks||[]).map(w=>({...w, notes: w.notes||''}));
-          const up={}; for(const k of Object.keys(data.grades||{})){ const v=data.grades[k]; if(typeof v==='number') up[k]={score:v, absent:false, ec:false, ecPoints:0}; else up[k]={score:(v&&typeof v.score==='number')?v.score:undefined, absent:!!(v&&v.absent), ec:!!(v&&v.ec), ecPoints:(v&&typeof v.ecPoints==='number')?v.ecPoints:0}; }
+          const up={}; 
+          for(const k of Object.keys(data.grades||{})){ 
+            const v=data.grades[k]; 
+            if(typeof v==='number') up[k]={score:v, absent:false, ec:false, ecPoints:0, note:''}; 
+            else up[k]={score:(v&&typeof v.score==='number')?v.score:undefined, absent:!!(v&&v.absent), ec:!!(v&&v.ec), ecPoints:(v&&typeof v.ecPoints==='number')?v.ecPoints:0, note:(v&&typeof v.note==='string')?v.note:''}; 
+          }
           data.grades=up;
           state = data; save(); renderAll(); alert('Import successful.');
         }catch(err){ alert('Could not import: '+err.message); }
@@ -524,6 +810,12 @@
     document.getElementById('btn-reset').addEventListener('click',()=>{
       if(confirm('Clear all local data and reset demo?')){ storage.remove(KEY); state = load(); renderAll(); }
     });
+
+    // Search wiring
+    const searchEl = document.getElementById('studentSearch');
+    const searchClearEl = document.getElementById('studentSearchClear');
+    searchEl.addEventListener('input', ()=>{ studentFilter = searchEl.value || ''; renderGrid(); });
+    searchClearEl.addEventListener('click', ()=>{ studentFilter=''; searchEl.value=''; renderGrid(); });
 
     // Init
     renderAll();
